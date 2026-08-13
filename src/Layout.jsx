@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
-import { CalendarClock, Users, Menu, X, Wrench } from 'lucide-react'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from './AuthContext'
+import { CalendarClock, Users, Menu, X, Wrench, LogOut } from 'lucide-react'
 
 const navItems = [
   { to: '/planification', label: 'Planification', icon: <CalendarClock size={16} /> },
@@ -9,7 +10,14 @@ const navItems = [
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { signOut } = useAuth()
+  const navigate = useNavigate()
   const closeSidebar = () => setSidebarOpen(false)
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/login')
+  }
 
   return (
     <div className="app-layout">
@@ -38,6 +46,13 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <button className="nav-item" onClick={handleSignOut}>
+            <LogOut size={16} />
+            Déconnexion
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">

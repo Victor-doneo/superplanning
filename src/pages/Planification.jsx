@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '../supabaseClient'
+import { useMemo, useState } from 'react'
+import { usePlanningData } from '../usePlanningData'
 import { RefreshCw, Search } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -18,92 +18,73 @@ function StatusBadge({ statut }) {
 }
 
 export default function Planification() {
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { devices, technicians, loading, error, reload } = usePlanningData()
+
   const [search, setSearch] = useState('')
   const [ligneFilter, setLigneFilter] = useState('')
   const [technicienFilter, setTechnicienFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState('')
 
-  async function load() {
-    setLoading(true)
-    setError(null)
-    const { data, error } = await supabase
-      .from('planning')
-      .select('*')
-      .order('zone_rdn', { ascending: true })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setRows(data || [])
-    }
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
-
   const lignes = useMemo(
-    () => [...new Set(rows.map(r => r.ligne).filter(Boolean))].sort(),
-    [rows]
-  )
-  const techniciens = useMemo(
-    () => [...new Set(rows.map(r => r.technicien).filter(Boolean))].sort(),
-    [rows]
+    () => [...new Set(devices.map(d => d.area).filter(Boolean))].sort(),
+    [devices]
   )
   const statuts = useMemo(
-    () => [...new Set(rows.map(r => r.statut).filter(Boolean))].sort(),
-    [rows]
+    () => [...new Set(devices.map(d => d.status).filter(Boolean))].sort(),
+    [devices]
+  )
+  const technicienNames = useMemo(
+    () => [...new Set(technicians.map(t => t.name).filter(Boolean))].sort(),
+    [technicians]
   )
 
   const filtered = useMemo(() => {
-    return rows.filter(r => {
-      if (ligneFilter && r.ligne !== ligneFilter) return false
-      if (technicienFilter && r.technicien !== technicienFilter) return false
-      if (statutFilter && r.statut !== statutFilter) return false
+    return devices.filter(d => {
+      if (ligneFilter && d.area !== ligneFilter) return false
+      if (technicienFilter && d.technicien !== technicienFilter) return false
+      if (statutFilter && d.status !== statutFilter) return false
       if (search) {
         const q = search.toLowerCase()
-        const hay = [r.barcode, r.zone_rdn, r.marque, r.type_appareil, r.commentaire]
+        const hay = [d.barcode, d.area, d.subarea, d.brand_name, d.service_sub_category_name, d.commentaire]
           .filter(Boolean).join(' ').toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [rows, ligneFilter, technicienFilter, statutFilter, search])
+  }, [devices, ligneFilter, technicienFilter, statutFilter, search])
 
-  const occupied = rows.filter(r => r.barcode).length
+  const assigned = devices.filter(d => d.technicien).length
 
   return (
     <>
       <div className="page-header">
         <h2 className="page-title">Planification</h2>
-        <p className="page-subtitle">Postes de ligne, unités en cours et technicien affecté</p>
+        <p className="page-subtitle">Unités en cours sur les lignes de test et de réparation</p>
       </div>
 
       <div className="page-body">
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-label">Postes suivis</div>
-            <div className="stat-value">{rows.length}</div>
+            <div className="stat-label">Unités en atelier</div>
+            <div className="stat-value">{devices.length}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Postes occupés</div>
-            <div className="stat-value">{occupied}</div>
+            <div className="stat-label">Affectées à un technicien</div>
+            <div className="stat-value">{assigned}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Lignes actives</div>
             <div className="stat-value">{lignes.length}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Techniciens mobilisés</div>
-            <div className="stat-value">{techniciens.length}</div>
+            <div className="stat-label">Techniciens réparation</div>
+            <div className="stat-value">{technicians.length}</div>
           </div>
         </div>
 
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Postes de ligne ({filtered.length})</span>
+            <span className="card-title">Unités ({filtered.length})</span>
             <div className="flex gap-2 items-center" style={{ flexWrap: 'wrap' }}>
               <div className="search-box">
                 <Search size={14} />
@@ -120,13 +101,13 @@ export default function Planification() {
               </select>
               <select className="form-input" value={technicienFilter} onChange={e => setTechnicienFilter(e.target.value)}>
                 <option value="">Tous les techniciens</option>
-                {techniciens.map(t => <option key={t} value={t}>{t}</option>)}
+                {technicienNames.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <select className="form-input" value={statutFilter} onChange={e => setStatutFilter(e.target.value)}>
                 <option value="">Tous les statuts</option>
                 {statuts.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button className="btn btn-icon" onClick={load} title="Rafraîchir">
+              <button className="btn btn-icon" onClick={reload} title="Rafraîchir">
                 <RefreshCw size={15} className={loading ? 'spin' : ''} />
               </button>
             </div>
@@ -137,15 +118,16 @@ export default function Planification() {
             {!error && loading && <div className="loading-state">Chargement…</div>}
             {!error && !loading && filtered.length === 0 && (
               <div className="empty-state">
-                <div className="empty-state-title">Aucun poste trouvé</div>
-                <div className="empty-state-sub">Ajuste les filtres ou vérifie que les données ont été importées (voir supabase_seed.sql).</div>
+                <div className="empty-state-title">Aucune unité trouvée</div>
+                <div className="empty-state-sub">Ajuste les filtres, ou vérifie que la fonction serveur est bien configurée (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).</div>
               </div>
             )}
             {!error && !loading && filtered.length > 0 && (
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Poste</th>
+                    <th>Ligne</th>
+                    <th>Banc</th>
                     <th>Code-barres</th>
                     <th>Type</th>
                     <th>Marque</th>
@@ -156,16 +138,17 @@ export default function Planification() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(r => (
-                    <tr key={r.id}>
-                      <td className="font-bold">{r.zone_rdn}</td>
-                      <td>{r.barcode || '—'}</td>
-                      <td>{r.type_appareil || '—'}</td>
-                      <td>{r.marque || '—'}</td>
-                      <td><StatusBadge statut={r.statut} /></td>
-                      <td>{r.technicien || '—'}</td>
-                      <td>{r.action || '—'}</td>
-                      <td className="text-sm text-gray" style={{ maxWidth: 260 }}>{r.commentaire || '—'}</td>
+                  {filtered.map(d => (
+                    <tr key={d.barcode}>
+                      <td className="font-bold">{d.area || '—'}</td>
+                      <td>{d.subarea || '—'}</td>
+                      <td>{d.barcode}</td>
+                      <td>{d.service_sub_category_name || '—'}</td>
+                      <td>{d.brand_name || '—'}</td>
+                      <td><StatusBadge statut={d.status} /></td>
+                      <td>{d.technicien || '—'}</td>
+                      <td>{d.action || '—'}</td>
+                      <td className="text-sm text-gray" style={{ maxWidth: 260 }}>{d.commentaire || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

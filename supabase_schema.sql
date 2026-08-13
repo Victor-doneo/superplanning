@@ -1,75 +1,21 @@
 -- ============================================================
--- Doneo Réparation — Schéma Supabase (PostgreSQL)
--- À exécuter une seule fois dans l'éditeur SQL de Supabase
+-- Doneo Réparation — Planification
+-- SEULE nouvelle table ajoutée à votre projet Supabase existant.
+-- Ne touche à aucune table/vue existante (export_devices_report, users,
+-- areas_storage, etc.).
 -- ============================================================
 
--- Collaborateurs / techniciens (feuille "REF" du fichier Excel)
-CREATE TABLE IF NOT EXISTS technicians (
-    id          SERIAL PRIMARY KEY,
-    name        TEXT UNIQUE NOT NULL,
-    role        TEXT,                 -- ex: Diagnostic, Réparation, Pré-diagnostic, Validation
-    active      BOOLEAN DEFAULT TRUE,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS repair_assignments (
+    barcode      TEXT PRIMARY KEY,     -- correspond à export_devices_report.barcode
+    technicien   TEXT,                 -- nom du technicien affecté (ex: "Wassime")
+    action       TEXT,                 -- ex: Pré-diagnostic, Diagnostic, Réparation, Validation
+    commentaire  TEXT,
+    updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Unités / appareils suivis (feuille "export_devices_mv")
-CREATE TABLE IF NOT EXISTS devices (
-    barcode                    TEXT PRIMARY KEY,
-    status                     TEXT,
-    subarea                    TEXT,     -- ex: "Banc 08"
-    area                       TEXT,     -- ex: "Ligne 04"
-    service_sub_category_name  TEXT,     -- ex: "Lave-linge hublot"
-    brand_name                 TEXT,
-    creator                    TEXT,
-    sparepart_types            TEXT[],
-    diag_request_by            TEXT,
-    diag_valid_by              TEXT,
-    repar_request_by           TEXT,
-    repar_valid_by             TEXT,
-    diag_request_date          TIMESTAMPTZ,
-    qual_nogo_diag_request_by  TEXT,
-    qual_nogo_diag_valid_by    TEXT,
-    qual_nogo_repar_request_by TEXT,
-    qual_nogo_repar_valid_by   TEXT,
-    merged_micro_failures      TEXT[],
-    merged_macro_failures      TEXT[],
-    last_refresh_utc           TIMESTAMPTZ,
-    updated_at                 TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_devices_area ON devices(area);
-CREATE INDEX IF NOT EXISTS idx_devices_subarea ON devices(subarea);
-CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status);
-
--- Planification par poste de ligne/banc (feuille "Affectation")
--- Une ligne = un emplacement physique (ex: "Ligne 04_Banc 01"), qui peut
--- accueillir une unité (barcode) et être affecté à un technicien pour une action.
-CREATE TABLE IF NOT EXISTS planning (
-    id            SERIAL PRIMARY KEY,
-    zone_rdn      TEXT UNIQUE NOT NULL,   -- ex: "Ligne 04_Banc 01"
-    ligne         TEXT,                   -- ex: "Ligne 04"
-    banc          TEXT,                   -- ex: "Banc 01"
-    barcode       TEXT REFERENCES devices(barcode) ON DELETE SET NULL,
-    type_appareil TEXT,
-    marque        TEXT,
-    statut        TEXT,
-    technicien    TEXT REFERENCES technicians(name) ON DELETE SET NULL,
-    action        TEXT,                   -- ex: Pré-diagnostic, Diagnostic, Réparation, Validation
-    commentaire   TEXT,
-    updated_at    TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_planning_ligne ON planning(ligne);
-CREATE INDEX IF NOT EXISTS idx_planning_technicien ON planning(technicien);
-CREATE INDEX IF NOT EXISTS idx_planning_statut ON planning(statut);
-
--- Historique des imports (traçabilité des rafraîchissements de données)
--- Nommée "repair_imports" (et non "imports") pour ne pas entrer en collision
--- avec la table "imports" de l'app colis/tournées qui partage ce projet Supabase.
-CREATE TABLE IF NOT EXISTS repair_imports (
-    id           SERIAL PRIMARY KEY,
-    filename     TEXT,
-    date_import  TIMESTAMPTZ DEFAULT NOW(),
-    nb_devices   INTEGER DEFAULT 0,
-    nb_planning  INTEGER DEFAULT 0
-);
+-- RLS : aucun accès direct depuis le client. Cette table n'est lue/écrite
+-- que par la fonction serveur (clé service_role), jamais depuis le
+-- navigateur — donc pas de politique SELECT/INSERT publique nécessaire.
+ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
+-- (volontairement aucune policy : accès uniquement via service_role, qui
+-- contourne RLS par nature — la table reste invisible à la clé anonyme)

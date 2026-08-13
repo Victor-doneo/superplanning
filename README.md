@@ -1,96 +1,130 @@
 # Doneo Réparation — Planification
 
-Application web de suivi des unités en réparation et de la charge de travail des
-techniciens, sur les lignes de test et de réparation.
+Application web de suivi des unités en réparation et de la charge de travail
+des techniciens, sur les lignes de test et de réparation.
 
-Générée à partir du fichier `Prépa_FT.xlsm` (feuilles `export_devices_mv`, `REF`,
-`Affectation`).
+## Architecture (important)
 
-## Fonctionnalités
+Cette app **ne duplique aucune donnée existante** de votre projet Supabase :
 
-- **Planification** : liste de tous les postes de ligne/banc, avec l'unité en
-  cours (code-barres, type, marque), le statut, le technicien affecté, l'action
-  à mener et le commentaire. Filtrable par ligne, technicien, statut, et
-  recherche libre.
-- **Collaborateurs** : liste des techniciens (rôle, charge actuelle, lignes sur
-  lesquelles ils interviennent).
+- Les unités/appareils sont lus **en direct** depuis la vue existante
+  `export_devices_report`.
+- Les techniciens sont lus **en direct** depuis la table existante `users`
+  (filtrée sur `roles` contenant `"Réparation"`).
+- **Une seule nouvelle table** est ajoutée : `repair_assignments`, qui stocke
+  uniquement ce qui n'existe nulle part ailleurs — le technicien affecté,
+  l'action à mener et le commentaire, par code-barres.
 
-L'application est **en lecture seule** : les données sont mises à jour côté
-base de données (import Excel régulier), pas depuis l'interface.
+Ces lectures ne se font **jamais directement depuis le navigateur** : une
+fonction serveur (`netlify/functions/planning.js`) utilise la clé
+`service_role` (secrète, jamais exposée au client) pour interroger ces
+tables/vues, après avoir vérifié que l'utilisateur est bien connecté. Ainsi,
+aucune politique RLS existante n'a besoin d'être modifiée.
 
-## Stack
+```
+Navigateur (React) --token Supabase Auth--> Fonction Netlify --service_role--> Supabase
+                                                                (export_devices_report,
+                                                                 users, repair_assignments)
+```
 
-- React + Vite, React Router
-- Supabase (PostgreSQL + client JS, lecture via clé anonyme + RLS)
-- Déploiement Netlify (`netlify.toml` fourni)
+## Authentification
+
+L'app utilise **Supabase Auth natif** (email + mot de passe), complètement
+indépendant de votre table `users` existante (qui semble alimentée par un
+autre système). Ça n'ajoute qu'une couche de connexion à `auth.users`
+(schéma interne de Supabase), sans toucher à vos tables `public.*`.
+
+**Créer un accès pour quelqu'un** : Supabase → Authentication → Users → *Add
+user* → renseigner email + mot de passe. La personne peut ensuite se
+connecter sur cette application avec ces identifiants (indépendants de ses
+identifiants sur vos autres outils).
 
 ## Mise en route
 
-### 1. Utiliser votre projet Supabase
+### 1. Ajouter la table manquante
 
-Ce projet peut cohabiter avec une autre app (ex. suivi de colis/tournées) dans
-le même projet Supabase : les tables `technicians`, `devices`, `planning`,
-`repair_imports` ont des noms distincts et n'entrent pas en conflit avec
-`tournees`, `colis`, `scans`, `imports`.
+Dans l'éditeur SQL Supabase, exécuter `supabase_schema.sql` — crée
+uniquement `repair_assignments` (RLS activé, aucune policy publique : accès
+exclusivement via la fonction serveur).
 
-1. Ouvrir votre projet existant sur [supabase.com](https://supabase.com).
-2. Dans l'éditeur SQL, exécuter dans l'ordre :
-   - `supabase_schema.sql` (tables)
-   - `supabase_policies.sql` (lecture publique en RLS)
-   - `supabase_seed.sql` (données initiales, générées depuis `Prépa_FT.xlsm`)
-3. Récupérer l'URL du projet et la clé `anon public` (Project Settings → API).
+### 2. Charger les affectations depuis l'Excel (optionnel, données de départ)
 
-### 2. Configurer l'application
+```bash
+npm run seed -- chemin/vers/Prépa_FT.xlsm
+```
+
+Génère `supabase_seed.sql` (uniquement des upserts dans `repair_assignments`
+à partir de la feuille "Affectation"). Exécuter ce fichier dans l'éditeur SQL
+Supabase.
+
+### 3. Configurer les variables d'environnement
+
+Le fichier `.env` (client, `VITE_...`) sert uniquement à l'authentification :
 
 ```bash
 cp .env.example .env
-# renseigner VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans .env
-npm install
-npm run dev
+# VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY (Project Settings → API)
 ```
 
-### 3. Mettre à jour les données plus tard
+La fonction serveur a besoin, elle, de variables **côté Netlify uniquement**
+(jamais dans `.env` du client, jamais commitées) :
 
-Quand un nouvel export Excel est disponible (même structure) :
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (clé secrète — Project Settings → API → `service_role`)
+
+En local, pour tester la fonction avec `netlify dev`, créer un fichier
+`.env` à la racine contenant aussi ces deux variables (non préfixées
+`VITE_`), ou les exporter dans le shell avant `netlify dev`.
+
+### 4. Lancer
 
 ```bash
-npm run seed -- chemin/vers/nouvel_export.xlsm
+npm install
+npm run dev        # front seul (la fonction ne répondra pas en local sans netlify dev)
+# ou, pour tester front + fonction ensemble :
+npx netlify dev
 ```
 
-Cela régénère `supabase_seed.sql`. Exécuter ensuite ce fichier dans l'éditeur
-SQL Supabase (ou via `psql`) pour mettre à jour la base — les `INSERT ...
-ON CONFLICT DO UPDATE` mettent à jour les lignes existantes sans dupliquer.
+### 5. Créer des comptes de connexion
 
-### 4. Déployer sur Netlify
+Supabase → Authentication → Users → Add user, pour chaque personne devant
+accéder à l'app.
 
-1. Pousser ce dépôt sur GitHub.
-2. Sur Netlify : "Add new site" → importer le dépôt.
-3. Renseigner les variables d'environnement `VITE_SUPABASE_URL` et
-   `VITE_SUPABASE_ANON_KEY` dans Site settings → Environment variables.
-4. Build command: `npm run build` — Publish directory: `dist` (déjà dans
-   `netlify.toml`).
+### 6. Déployer sur Netlify
+
+1. Pousser ce dépôt sur GitHub, puis l'importer dans Netlify.
+2. Site settings → Environment variables, ajouter les **4** variables :
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`.
+3. Build command `npm run build`, publish directory `dist` (déjà dans
+   `netlify.toml`), fonctions dans `netlify/functions`.
 
 ## Structure
 
 ```
 src/
-  App.jsx              routes
-  Layout.jsx            sidebar + navigation
-  supabaseClient.js      client Supabase
+  App.jsx                routes + AuthProvider
+  AuthContext.jsx         session Supabase Auth
+  RequireAuth.jsx          garde d'accès (redirige vers /login)
+  usePlanningData.js       hook : appelle la fonction serveur
+  Layout.jsx               sidebar + déconnexion
+  supabaseClient.js         client Supabase (auth uniquement)
   pages/
-    Planification.jsx   onglet principal
-    Collaborateurs.jsx   équipe & charge
-supabase_schema.sql       tables
-supabase_policies.sql     RLS lecture seule
-supabase_seed.sql         données initiales (depuis Prépa_FT.xlsm)
-scripts/seed-from-excel.mjs   régénère le seed depuis un nouvel export
+    Login.jsx
+    Planification.jsx      onglet principal
+    Collaborateurs.jsx      équipe & charge
+netlify/functions/
+  planning.js              lecture sécurisée (service_role) des données existantes + repair_assignments
+supabase_schema.sql        SEULE nouvelle table : repair_assignments
+supabase_seed.sql          affectations initiales (généré depuis Prépa_FT.xlsm)
+scripts/seed-from-excel.mjs  régénère le seed depuis un nouvel export
 ```
 
 ## Modèle de données
 
-- `technicians` — collaborateurs (feuille `REF`) : nom, rôle (Diagnostic,
-  Réparation, Pré-diagnostic, Validation…).
-- `devices` — unités suivies (feuille `export_devices_mv`) : code-barres,
-  statut, zone/sous-zone, marque, type, historique diag/réparation, pannes.
-- `planning` — poste de ligne/banc (feuille `Affectation`) : position physique,
-  unité qui l'occupe, technicien affecté, action et commentaire.
+- **`export_devices_report`** (existant, lecture seule) — unités : code-barres,
+  statut, `area` (= Ligne), `subarea` (= Banc), marque, type, pannes.
+- **`users`** (existant, lecture seule, filtré sur `roles` ⊇ `Réparation`) —
+  techniciens.
+- **`repair_assignments`** (nouvelle table) — barcode, technicien, action,
+  commentaire : le seul ajout à votre base.

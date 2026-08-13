@@ -64,7 +64,9 @@ CREATE INDEX IF NOT EXISTS idx_planning_technicien ON planning(technicien);
 CREATE INDEX IF NOT EXISTS idx_planning_statut ON planning(statut);
 
 -- Historique des imports (traçabilité des rafraîchissements de données)
-CREATE TABLE IF NOT EXISTS imports (
+-- Nommée "repair_imports" (et non "imports") pour ne pas entrer en collision
+-- avec la table "imports" de l'app colis/tournées qui partage ce projet Supabase.
+CREATE TABLE IF NOT EXISTS repair_imports (
     id           SERIAL PRIMARY KEY,
     filename     TEXT,
     date_import  TIMESTAMPTZ DEFAULT NOW(),

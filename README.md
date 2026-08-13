@@ -26,9 +26,14 @@ base de données (import Excel régulier), pas depuis l'interface.
 
 ## Mise en route
 
-### 1. Créer le projet Supabase
+### 1. Utiliser votre projet Supabase
 
-1. Créer un projet sur [supabase.com](https://supabase.com).
+Ce projet peut cohabiter avec une autre app (ex. suivi de colis/tournées) dans
+le même projet Supabase : les tables `technicians`, `devices`, `planning`,
+`repair_imports` ont des noms distincts et n'entrent pas en conflit avec
+`tournees`, `colis`, `scans`, `imports`.
+
+1. Ouvrir votre projet existant sur [supabase.com](https://supabase.com).
 2. Dans l'éditeur SQL, exécuter dans l'ordre :
    - `supabase_schema.sql` (tables)
    - `supabase_policies.sql` (lecture publique en RLS)

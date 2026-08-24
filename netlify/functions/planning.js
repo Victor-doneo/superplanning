@@ -65,10 +65,28 @@ export async function handler(event) {
       assignmentsRes.data.map(a => [normalizeBarcode(a.barcode), a])
     )
 
+    const now = new Date().toISOString()
+    const trackingUpdates = []
+
     const devices = (devicesRes.data || [])
       .filter(d => isRepairArea(d.area))
       .map(d => {
         const a = assignmentsByBarcode.get(normalizeBarcode(d.barcode))
+
+        // Détection d'un changement de zone/statut depuis le dernier passage :
+        // si différent (ou jamais vu), on redémarre le chrono "depuis".
+        let statusSince = a?.status_since || null
+        const changed = !a || a.tracked_area !== d.area || a.tracked_status !== d.status
+        if (changed) {
+          statusSince = now
+          trackingUpdates.push({
+            barcode: String(d.barcode),
+            tracked_area: d.area,
+            tracked_status: d.status,
+            status_since: now,
+          })
+        }
+
         return {
           barcode: d.barcode,
           status: d.status,
@@ -81,8 +99,17 @@ export async function handler(event) {
           technicien: a?.technicien || null,
           action: a?.action || null,
           commentaire: a?.commentaire || null,
+          status_since: statusSince,
         }
       })
+
+    // Enregistrer les changements détectés (ne touche pas technicien/action/commentaire)
+    if (trackingUpdates.length > 0) {
+      const { error: trackErr } = await admin
+        .from('repair_assignments')
+        .upsert(trackingUpdates, { onConflict: 'barcode' })
+      if (trackErr) console.error('Erreur mise à jour du suivi zone/statut :', trackErr.message)
+    }
 
     const technicians = (techsRes.data || [])
       .filter(u => !u.deleted)

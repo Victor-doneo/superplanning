@@ -6,12 +6,25 @@
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS repair_assignments (
-    barcode      TEXT PRIMARY KEY,     -- correspond à export_devices_report.barcode
-    technicien   TEXT,                 -- nom du technicien affecté (ex: "Wassime")
-    action       TEXT,                 -- ex: Pré-diagnostic, Diagnostic, Réparation, Validation
-    commentaire  TEXT,
-    updated_at   TIMESTAMPTZ DEFAULT NOW()
+    barcode        TEXT PRIMARY KEY,     -- correspond à export_devices_report.barcode
+    technicien     TEXT,                 -- nom du technicien affecté (ex: "Wassime")
+    action         TEXT,                 -- ex: Pré-diagnostic, Diagnostic, Réparation, Validation
+    commentaire    TEXT,
+    -- Suivi "depuis combien de temps sur cette zone avec ce statut" : l'app
+    -- met à jour ces 3 colonnes elle-même dès qu'elle détecte un changement
+    -- de zone ou de statut sur l'appareil (aucune donnée historique
+    -- n'existant ailleurs, le compteur démarre à partir du premier passage
+    -- de l'app après ce changement).
+    tracked_area   TEXT,
+    tracked_status TEXT,
+    status_since   TIMESTAMPTZ,
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Si la table existait déjà (déploiement précédent), ajouter les 3 colonnes :
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS tracked_area TEXT;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS tracked_status TEXT;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS status_since TIMESTAMPTZ;
 
 -- RLS : aucun accès direct depuis le client. Cette table n'est lue/écrite
 -- que par la fonction serveur (clé service_role), jamais depuis le

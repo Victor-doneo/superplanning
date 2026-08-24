@@ -27,6 +27,18 @@ function zoneTypeOf(area) {
   return 'Autres zones'
 }
 
+function formatSince(iso) {
+  if (!iso) return '—'
+  const diffMs = Date.now() - new Date(iso).getTime()
+  if (diffMs < 0) return '—'
+  const minutes = Math.floor(diffMs / 60000)
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} h`
+  const days = Math.floor(hours / 24)
+  return `${days} j`
+}
+
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
 
 function EditableRow({ device, technicienNames, onSave }) {
@@ -57,6 +69,7 @@ function EditableRow({ device, technicienNames, onSave }) {
       <td>{device.service_sub_category_name || '—'}</td>
       <td>{device.brand_name || '—'}</td>
       <td><StatusBadge statut={device.status} /></td>
+      <td className="text-sm text-gray">{formatSince(device.status_since)}</td>
       <td>
         <select
           className="form-input"
@@ -122,22 +135,25 @@ export default function Planification() {
   )
 
   const filtered = useMemo(() => {
-    return devices.filter(d => {
-      if (zoneTypeFilter && zoneTypeOf(d.area) !== zoneTypeFilter) return false
-      if (ligneFilter && d.area !== ligneFilter) return false
-      if (technicienFilter && d.technicien !== technicienFilter) return false
-      if (statutFilter && d.status !== statutFilter) return false
-      if (search) {
-        const q = search.toLowerCase()
-        const hay = [d.barcode, d.area, d.subarea, d.brand_name, d.service_sub_category_name, d.commentaire]
-          .filter(Boolean).join(' ').toLowerCase()
-        if (!hay.includes(q)) return false
-      }
-      return true
-    })
+    return devices
+      .filter(d => {
+        if (zoneTypeFilter && zoneTypeOf(d.area) !== zoneTypeFilter) return false
+        if (ligneFilter && d.area !== ligneFilter) return false
+        if (technicienFilter && d.technicien !== technicienFilter) return false
+        if (statutFilter && d.status !== statutFilter) return false
+        if (search) {
+          const q = search.toLowerCase()
+          const hay = [d.barcode, d.area, d.subarea, d.brand_name, d.service_sub_category_name, d.commentaire]
+            .filter(Boolean).join(' ').toLowerCase()
+          if (!hay.includes(q)) return false
+        }
+        return true
+      })
+      .sort((a, b) => (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr'))
   }, [devices, zoneTypeFilter, ligneFilter, technicienFilter, statutFilter, search])
 
   const assigned = devices.filter(d => d.technicien).length
+  const enZoneBancs = devices.filter(d => zoneTypeOf(d.area) === 'Zone bancs').length
 
   return (
     <>
@@ -151,6 +167,10 @@ export default function Planification() {
           <div className="stat-card">
             <div className="stat-label">Unités en atelier</div>
             <div className="stat-value">{devices.length}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">En zone bancs</div>
+            <div className="stat-value">{enZoneBancs}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Affectées à un technicien</div>
@@ -222,6 +242,7 @@ export default function Planification() {
                     <th>Type</th>
                     <th>Marque</th>
                     <th>Statut</th>
+                    <th>Depuis</th>
                     <th>Technicien</th>
                     <th>Action</th>
                     <th>Commentaire</th>

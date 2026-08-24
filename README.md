@@ -30,52 +30,35 @@ Navigateur (React) --jeton signé--> Fonctions Netlify --service_role--> Supabas
                                         (login, planning, assign, pins)
 ```
 
-## Connexion : nom + code PIN (pas de compte à créer)
+## Connexion : nom + code PIN (table externe, pas de compte à créer)
 
-Pas d'email ni de mot de passe : chaque personne choisit son nom dans une
-liste (tirée de `users`, filtrée sur les rôles "Réparation" /
-"Admin réparation") puis tape un code à 4 chiffres.
+Pas d'email ni de mot de passe géré ici : chaque personne choisit son nom
+dans une liste (tirée de `users` du projet principal, filtrée sur les rôles
+"Réparation" / "Admin réparation") puis tape son code PIN.
 
-- **Rôle automatique** : basé sur `users.roles` — pas de gestion de compte à
-  faire à part définir le PIN.
-- **Sécurité du PIN** : haché (jamais stocké en clair), verrouillage 15 min
-  après 5 essais incorrects.
-- ⚠️ Un code à 4 chiffres reste un niveau de sécurité modeste (pensé pour un
-  usage interne d'atelier). Ne l'utilisez pas pour protéger des données
-  sensibles au-delà de ce contexte.
+**Le PIN lui-même n'est pas stocké par cette app** : il est vérifié auprès
+d'un **second projet Supabase**, table `collaborateurs` (colonnes `email` /
+`pin`, en clair), déjà géré par un autre de vos outils. La correspondance se
+fait par email entre les deux projets.
 
-### Définir le PIN de quelqu'un
-
-Connecté en tant qu'admin, allez dans l'onglet **Accès** → à côté de la
-personne, cliquez "Définir le PIN" (un code aléatoire est proposé,
-modifiable) → Valider. Communiquez-le à la personne concernée.
-
-### Tout premier accès admin (bootstrap, une seule fois)
-
-Comme il faut être connecté pour définir un PIN depuis l'app, le tout
-premier PIN doit être créé directement en base, une seule fois :
-
-1. Repérez votre `id` dans la table `users` (Supabase → Table Editor →
-   `users`, cherchez votre ligne).
-2. Dans l'éditeur SQL Supabase :
-   ```sql
-   -- Remplacez 'VOTRE_USER_ID' et '1234' (choisissez un vrai PIN)
-   insert into repair_pins (user_id, pin_hash)
-   values ('VOTRE_USER_ID', crypt('1234', gen_salt('bf')))
-   on conflict (user_id) do update set pin_hash = excluded.pin_hash;
-   ```
-   Si `crypt`/`gen_salt` ne sont pas disponibles (extension `pgcrypto` non
-   activée), activez-la d'abord : `create extension if not exists pgcrypto;`
-3. Connectez-vous à l'app avec ce PIN, puis créez tous les autres PIN depuis
-   l'onglet Accès.
+- **Rôle automatique** : basé sur `users.roles` (projet principal).
+- ⚠️ **Sécurité réduite par rapport à la version précédente** : comme le PIN
+  vit dans une table qui ne nous appartient pas, cette app ne peut plus
+  ajouter de hachage ni de verrouillage anti-brute-force dessus (ça
+  demanderait de modifier la structure de `collaborateurs`, ce qu'on
+  s'interdit ici). Le PIN reste ce qu'il est dans votre autre outil : à vous
+  de juger si son niveau de sécurité (longueur, complexité) est suffisant
+  pour cet usage.
+- L'onglet **Accès** de cette app est **en lecture seule** : il indique qui a
+  un PIN défini ou non, mais ne permet pas de le créer/modifier — ça se fait
+  dans l'outil qui gère la table `collaborateurs`.
 
 ## Mise en route
 
-### 1. Ajouter les tables manquantes
+### 1. Ajouter la table manquante
 
-Dans l'éditeur SQL Supabase, exécuter `supabase_schema.sql` — crée
-`repair_assignments` et `repair_pins` (RLS activé, aucune policy publique :
-accès exclusivement via les fonctions serveur).
+Dans l'éditeur SQL Supabase (projet principal), exécuter `supabase_schema.sql`
+— crée uniquement `repair_assignments`.
 
 ### 2. Charger les affectations depuis l'Excel (optionnel, données de départ)
 
@@ -88,8 +71,15 @@ feuille "Affectation"). Exécuter ce fichier dans l'éditeur SQL Supabase.
 
 ### 3. Variables d'environnement (Netlify uniquement, jamais dans le client)
 
+Projet principal (unités, techniciens, affectations) :
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → `service_role`)
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Second projet (table `collaborateurs`, gestion des PIN) :
+- `SUPABASE_COLLAB_URL`
+- `SUPABASE_COLLAB_SERVICE_ROLE_KEY`
+
+Commun :
 - `JWT_SECRET` — une chaîne aléatoire longue et secrète, ex. générée avec
   `openssl rand -hex 32`. Sert à signer les jetons de session.
 
@@ -145,12 +135,14 @@ scripts/seed-from-excel.mjs  régénère le seed depuis un nouvel export
 
 ## Modèle de données
 
-- **`export_devices_report`** (existant, lecture seule) — unités : code-barres,
-  statut, `area` (= Ligne), `subarea` (= Banc), marque, type, pannes.
-- **`users`** (existant, lecture seule) — personnes ; rôle app déduit de
-  `roles` ("Admin réparation" / "Réparation").
-- **`repair_assignments`** (nouvelle table) — barcode, technicien, action,
-  commentaire admin, commentaire technicien, tâche réalisée, suivi
-  zone/statut dans le temps.
-- **`repair_pins`** (nouvelle table) — PIN haché par personne, compteur
-  d'essais, verrouillage temporaire.
+- **`export_devices_report`** (projet principal, existant, lecture seule) —
+  unités : code-barres, statut, `area` (= Ligne), `subarea` (= Banc), marque,
+  type, pannes.
+- **`users`** (projet principal, existant, lecture seule) — personnes ; rôle
+  app déduit de `roles` ("Admin réparation" / "Réparation") ; email utilisé
+  pour retrouver le PIN dans l'autre projet.
+- **`collaborateurs`** (SECOND projet, existant, lecture seule) — `email` +
+  `pin` en clair, géré par un autre de vos outils.
+- **`repair_assignments`** (nouvelle table, projet principal) — barcode,
+  technicien, action, commentaire admin, commentaire technicien, tâche
+  réalisée, suivi zone/statut dans le temps.

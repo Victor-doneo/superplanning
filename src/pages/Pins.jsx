@@ -1,73 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { authedFetch } from '../auth'
-import { RefreshCw, KeyRound, Trash2 } from 'lucide-react'
-
-function genPin() {
-  return String(Math.floor(1000 + Math.random() * 9000))
-}
-
-function PersonRow({ person, onSet, onDelete }) {
-  const [editing, setEditing] = useState(false)
-  const [pin, setPin] = useState(genPin())
-  const [saving, setSaving] = useState(false)
-
-  async function handleSave() {
-    setSaving(true)
-    try {
-      await onSet(person.id, pin)
-      setEditing(false)
-    } catch (e) {
-      alert('Échec : ' + e.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <tr>
-      <td className="font-bold">{person.name}</td>
-      <td>{person.role === 'admin' ? 'Admin' : 'Technicien'}</td>
-      <td>
-        {person.locked ? (
-          <span className="badge badge-red">Verrouillé</span>
-        ) : person.has_pin ? (
-          <span className="badge badge-green">PIN défini</span>
-        ) : (
-          <span className="badge badge-gray">Aucun PIN</span>
-        )}
-      </td>
-      <td>
-        {!editing ? (
-          <button className="btn" onClick={() => { setPin(genPin()); setEditing(true) }}>
-            <KeyRound size={13} style={{ marginRight: 4 }} />
-            {person.has_pin ? 'Réinitialiser' : 'Définir'} le PIN
-          </button>
-        ) : (
-          <div className="flex gap-2 items-center">
-            <input
-              className="form-input"
-              style={{ width: 90, textAlign: 'center', letterSpacing: 4, fontWeight: 700 }}
-              value={pin}
-              maxLength={4}
-              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            />
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving || pin.length !== 4}>
-              {saving ? '…' : 'Valider'}
-            </button>
-            <button className="btn" onClick={() => setEditing(false)}>Annuler</button>
-          </div>
-        )}
-      </td>
-      <td>
-        {person.has_pin && (
-          <button className="btn btn-icon" title="Supprimer le PIN (bloque la connexion)" onClick={() => onDelete(person.id)}>
-            <Trash2 size={14} />
-          </button>
-        )}
-      </td>
-    </tr>
-  )
-}
+import { RefreshCw } from 'lucide-react'
 
 export default function Pins() {
   const [people, setPeople] = useState([])
@@ -89,22 +22,13 @@ export default function Pins() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleSet(user_id, pin) {
-    await authedFetch('/.netlify/functions/pins', { method: 'POST', body: JSON.stringify({ user_id, pin }) })
-    load()
-  }
-
-  async function handleDelete(user_id) {
-    if (!confirm('Supprimer ce PIN ? La personne ne pourra plus se connecter tant que vous ne lui en redéfinissez pas un.')) return
-    await authedFetch('/.netlify/functions/pins', { method: 'DELETE', body: JSON.stringify({ user_id }) })
-    load()
-  }
-
   return (
     <>
       <div className="page-header">
         <h2 className="page-title">Accès</h2>
-        <p className="page-subtitle">Codes PIN de connexion — basé sur les rôles déjà présents dans votre table users</p>
+        <p className="page-subtitle">
+          Vue en lecture seule — les codes PIN sont gérés dans votre autre outil (table collaborateurs)
+        </p>
       </div>
 
       <div className="page-body">
@@ -120,7 +44,7 @@ export default function Pins() {
             {!error && loading && <div className="loading-state">Chargement…</div>}
             {!error && !loading && people.length === 0 && (
               <div className="empty-state">
-                <div className="empty-state-title">Personne trouvée</div>
+                <div className="empty-state-title">Aucune personne trouvée</div>
                 <div className="empty-state-sub">Aucun compte avec le rôle "Réparation" ou "Admin réparation" dans votre table users.</div>
               </div>
             )}
@@ -130,14 +54,20 @@ export default function Pins() {
                   <tr>
                     <th>Nom</th>
                     <th>Rôle</th>
-                    <th>Statut</th>
-                    <th></th>
-                    <th></th>
+                    <th>Statut PIN</th>
                   </tr>
                 </thead>
                 <tbody>
                   {people.map(p => (
-                    <PersonRow key={p.id} person={p} onSet={handleSet} onDelete={handleDelete} />
+                    <tr key={p.id}>
+                      <td className="font-bold">{p.name}</td>
+                      <td>{p.role === 'admin' ? 'Admin' : 'Technicien'}</td>
+                      <td>
+                        {p.has_pin
+                          ? <span className="badge badge-green">PIN défini</span>
+                          : <span className="badge badge-gray">Aucun PIN</span>}
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>

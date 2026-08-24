@@ -44,17 +44,7 @@ ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 -- Codes PIN de connexion
 -- ============================================================
--- Remplace Supabase Auth : chaque personne se connecte en choisissant son
--- nom (parmi public.users, filtré sur roles) puis en tapant un code à 4
--- chiffres. Le rôle (admin / technicien) est déduit automatiquement de
--- public.users.roles : "Admin réparation" -> admin, "Réparation" -> technicien.
--- Ne touche pas à la table users existante — juste une référence par id.
-CREATE TABLE IF NOT EXISTS repair_pins (
-    user_id         TEXT PRIMARY KEY,   -- correspond à users.id
-    pin_hash        TEXT NOT NULL,      -- code PIN haché (jamais stocké en clair)
-    failed_attempts INT DEFAULT 0,
-    locked_until    TIMESTAMPTZ,
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE repair_pins ENABLE ROW LEVEL SECURITY;
--- (idem : accès exclusivement via service_role depuis les fonctions serveur)
+-- Les PIN sont gérés dans un AUTRE projet Supabase, table
+-- "collaborateurs" (colonnes email / pin), pas ici. Rien à créer côté
+-- base pour cette partie — voir netlify/functions/login.js pour le détail
+-- de la connexion entre les deux projets.

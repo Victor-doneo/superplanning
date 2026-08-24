@@ -1,17 +1,20 @@
-// Fonction publique : vérifie le PIN et renvoie un jeton de session signé.
+// Fonction publique : vérifie le PIN auprès d'un SECOND projet Supabase
+// (table "collaborateurs", colonnes email / pin, gérée ailleurs), puis
+// récupère le nom/rôle depuis le projet principal (table users, via
+// correspondance sur l'email).
 //
 // Variables d'environnement requises (Netlify) :
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY         (projet principal)
+//   SUPABASE_COLLAB_URL, SUPABASE_COLLAB_SERVICE_ROLE_KEY   (projet des PIN)
+//   JWT_SECRET
 
 import { createClient } from '@supabase/supabase-js'
-import bcrypt from 'bcryptjs'
 import { signToken } from './_shared/auth.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-const MAX_ATTEMPTS = 5
-const LOCK_MINUTES = 15
+const collabUrl = process.env.SUPABASE_COLLAB_URL
+const collabKey = process.env.SUPABASE_COLLAB_SERVICE_ROLE_KEY
 
 function roleOf(roles) {
   if (!Array.isArray(roles)) return null
@@ -24,8 +27,8 @@ export async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' }
   }
-  if (!supabaseUrl || !serviceKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Configuration serveur manquante.' }) }
+  if (!supabaseUrl || !serviceKey || !collabUrl || !collabKey) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'Configuration serveur manquante (variables Supabase principal / collaborateurs).' }) }
   }
 
   let payload
@@ -40,11 +43,13 @@ export async function handler(event) {
   }
 
   const admin = createClient(supabaseUrl, serviceKey)
+  const collab = createClient(collabUrl, collabKey)
 
   try {
+    // 1. Retrouver la personne + son rôle dans le projet principal
     const { data: person, error: personErr } = await admin
       .from('users')
-      .select('id, name, roles, deleted')
+      .select('id, name, email, roles, deleted')
       .eq('id', user_id)
       .maybeSingle()
     if (personErr) throw personErr
@@ -52,38 +57,25 @@ export async function handler(event) {
     if (!person || !role) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Compte inconnu ou non autorisé.' }) }
     }
+    if (!person.email) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Aucun email associé à ce compte, connexion impossible.' }) }
+    }
 
-    const { data: pinRow, error: pinErr } = await admin
-      .from('repair_pins')
-      .select('*')
-      .eq('user_id', user_id)
+    // 2. Vérifier le PIN dans le second projet (table collaborateurs), par email
+    const { data: collabRow, error: collabErr } = await collab
+      .from('collaborateurs')
+      .select('pin, email')
+      .ilike('email', person.email)
       .maybeSingle()
-    if (pinErr) throw pinErr
+    if (collabErr) throw collabErr
 
-    if (!pinRow) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Aucun code PIN défini pour ce compte. Demandez à un admin de vous en créer un dans l'onglet Accès." }) }
+    if (!collabRow || collabRow.pin === null || collabRow.pin === undefined) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Aucun code PIN trouvé pour ce compte.' }) }
     }
 
-    if (pinRow.locked_until && new Date(pinRow.locked_until) > new Date()) {
-      const mins = Math.ceil((new Date(pinRow.locked_until) - new Date()) / 60000)
-      return { statusCode: 423, body: JSON.stringify({ error: `Trop de tentatives. Réessayez dans ${mins} min.` }) }
-    }
-
-    const valid = await bcrypt.compare(String(pin), pinRow.pin_hash)
-
-    if (!valid) {
-      const attempts = (pinRow.failed_attempts || 0) + 1
-      const update = { failed_attempts: attempts, updated_at: new Date().toISOString() }
-      if (attempts >= MAX_ATTEMPTS) {
-        update.locked_until = new Date(Date.now() + LOCK_MINUTES * 60000).toISOString()
-        update.failed_attempts = 0
-      }
-      await admin.from('repair_pins').update(update).eq('user_id', user_id)
+    if (String(collabRow.pin).trim() !== String(pin).trim()) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Code PIN incorrect.' }) }
     }
-
-    // Succès : réinitialiser le compteur d'essais
-    await admin.from('repair_pins').update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq('user_id', user_id)
 
     const claims = {
       sub: person.id,

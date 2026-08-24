@@ -6,6 +6,7 @@ import Login from './pages/Login.jsx'
 import Planification from './pages/Planification.jsx'
 import Collaborateurs from './pages/Collaborateurs.jsx'
 import MesTaches from './pages/MesTaches.jsx'
+import Acces from './pages/Acces.jsx'
 
 function RoleHome() {
   const { role } = useAuth()
@@ -31,6 +32,7 @@ export default function App() {
           <Route element={<RequireRole role="admin"><Layout /></RequireRole>}>
             <Route path="/planification" element={<Planification />} />
             <Route path="/collaborateurs" element={<Collaborateurs />} />
+            <Route path="/acces" element={<Acces />} />
           </Route>
         </Route>
       </Routes>

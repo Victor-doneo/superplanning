@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthContext'
-import { CalendarClock, Users, Menu, X, Wrench, LogOut } from 'lucide-react'
+import { CalendarClock, Users, Menu, X, Wrench, LogOut, KeyRound } from 'lucide-react'
 
 const navItems = [
   { to: '/planification', label: 'Planification', icon: <CalendarClock size={16} /> },
   { to: '/collaborateurs', label: 'Collaborateurs', icon: <Users size={16} /> },
+  { to: '/acces', label: 'Accès', icon: <KeyRound size={16} /> },
 ]
 
 export default function Layout() {

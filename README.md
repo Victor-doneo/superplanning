@@ -85,22 +85,29 @@ npm run dev        # front seul (la fonction ne répondra pas en local sans netl
 npx netlify dev
 ```
 
-### 5. Créer des comptes de connexion
+### 5. Créer votre tout premier compte admin (une seule fois)
 
-Supabase → Authentication → Users → Add user, pour chaque personne devant
-accéder à l'app.
+Il faut un premier compte admin pour pouvoir se connecter et créer les
+autres depuis l'app. Cette seule étape passe encore par le tableau de bord
+Supabase :
 
-**Attribuer un rôle (important)** : ouvrez `supabase_schema.sql`, section
-"Rôles des comptes de connexion", et exécutez dans l'éditeur SQL Supabase la
-requête correspondante (admin ou technicien) pour chaque compte créé — en
-adaptant l'email (et le nom exact du technicien pour un compte technicien).
-**Un compte sans rôle explicite est traité comme admin.**
+1. Supabase → Authentication → Users → Add user (email + mot de passe,
+   cochez "Auto Confirm User" si l'option existe).
+2. Ouvrez `supabase_schema.sql`, section "Rôles des comptes de connexion",
+   copiez la requête "Pour un compte ADMIN", adaptez l'email, exécutez-la
+   dans l'éditeur SQL Supabase.
 
-- Compte **admin** : accède à Planification (vue complète, affectation) et
-  Collaborateurs.
+**Après cette étape unique**, connectez-vous à l'app avec ce compte, allez
+dans l'onglet **Accès**, et créez tous les autres comptes (admins et
+techniciens) directement depuis l'interface — plus besoin de retourner sur
+le tableau de bord Supabase.
+
+- Compte **admin** : accède à Planification (vue complète, affectation),
+  Collaborateurs et Accès.
 - Compte **technicien** : accède uniquement à "Mes tâches" — les appareils
   qui lui sont affectés, avec son propre commentaire et un bouton "Tâche
-  réalisée". Il ne voit ni les autres techniciens, ni les autres appareils.
+  réalisée". Il ne voit ni les autres techniciens, ni les autres appareils,
+  ni l'écran Accès.
 
 ### 6. Déployer sur Netlify
 

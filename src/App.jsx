@@ -6,15 +6,15 @@ import Login from './pages/Login.jsx'
 import Planification from './pages/Planification.jsx'
 import Collaborateurs from './pages/Collaborateurs.jsx'
 import MesTaches from './pages/MesTaches.jsx'
-import Acces from './pages/Acces.jsx'
+import Pins from './pages/Pins.jsx'
 
 function RoleHome() {
   const { role } = useAuth()
   return <Navigate to={role === 'technicien' ? '/mes-taches' : '/planification'} replace />
 }
 
-// Empêche un compte technicien d'accéder aux écrans admin (et inversement,
-// un accès direct à /mes-taches par un admin) en tapant l'URL à la main.
+// Empêche un compte technicien d'accéder aux écrans admin (et inversement)
+// en tapant l'URL à la main.
 function RequireRole({ role, children }) {
   const { role: current } = useAuth()
   if (current !== role) return <Navigate to={current === 'technicien' ? '/mes-taches' : '/planification'} replace />
@@ -32,7 +32,7 @@ export default function App() {
           <Route element={<RequireRole role="admin"><Layout /></RequireRole>}>
             <Route path="/planification" element={<Planification />} />
             <Route path="/collaborateurs" element={<Collaborateurs />} />
-            <Route path="/acces" element={<Acces />} />
+            <Route path="/acces" element={<Pins />} />
           </Route>
         </Route>
       </Routes>

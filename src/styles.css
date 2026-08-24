@@ -162,6 +162,15 @@ body {
 .login-error { background: var(--red-light); color: #991b1b; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); margin-top: 8px; }
 .login-card button[type="submit"] { margin-top: 16px; padding: 10px; }
 
+.pin-display { text-align: center; font-size: 22px; letter-spacing: 10px; font-weight: 700; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.pin-key {
+  padding: 14px 0; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);
+  background: var(--gray-50); font-size: 18px; font-weight: 600; cursor: pointer;
+}
+.pin-key:hover { background: var(--gray-100); }
+.pin-key-muted { color: var(--gray-400); font-size: 16px; }
+
 /* ---- Mes tâches (technicien) ---- */
 .tech-page { min-height: 100vh; background: var(--gray-bg); }
 .tech-topbar {

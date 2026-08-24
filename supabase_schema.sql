@@ -42,24 +42,19 @@ ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
 -- contourne RLS par nature — la table reste invisible à la clé anonyme)
 
 -- ============================================================
--- Rôles des comptes de connexion (admin / technicien)
+-- Codes PIN de connexion
 -- ============================================================
--- Après avoir créé un utilisateur dans Authentication → Users, exécutez
--- l'une de ces deux requêtes pour lui attribuer un rôle. C'est stocké dans
--- app_metadata (zone non modifiable par l'utilisateur lui-même, contrairement
--- à user_metadata) — donc impossible à falsifier depuis le navigateur.
---
--- IMPORTANT : un compte SANS rôle défini est traité comme admin par défaut
--- (accès complet). Pensez à taguer chaque compte technicien explicitement.
-
--- Pour un compte ADMIN (vue complète, affectation) :
--- update auth.users
--- set raw_app_meta_data = raw_app_meta_data || jsonb_build_object('role', 'admin')
--- where email = 'vous@doneo.co';
-
--- Pour un compte TECHNICIEN (vue "Mes tâches" uniquement, filtrée sur son nom) :
--- 'technicien_name' doit correspondre EXACTEMENT au nom dans la table users
--- (celui utilisé pour l'affectation, ex: "Wassime").
--- update auth.users
--- set raw_app_meta_data = raw_app_meta_data || jsonb_build_object('role', 'technicien', 'technicien_name', 'Wassime')
--- where email = 'wassime@doneo.co';
+-- Remplace Supabase Auth : chaque personne se connecte en choisissant son
+-- nom (parmi public.users, filtré sur roles) puis en tapant un code à 4
+-- chiffres. Le rôle (admin / technicien) est déduit automatiquement de
+-- public.users.roles : "Admin réparation" -> admin, "Réparation" -> technicien.
+-- Ne touche pas à la table users existante — juste une référence par id.
+CREATE TABLE IF NOT EXISTS repair_pins (
+    user_id         TEXT PRIMARY KEY,   -- correspond à users.id
+    pin_hash        TEXT NOT NULL,      -- code PIN haché (jamais stocké en clair)
+    failed_attempts INT DEFAULT 0,
+    locked_until    TIMESTAMPTZ,
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE repair_pins ENABLE ROW LEVEL SECURITY;
+-- (idem : accès exclusivement via service_role depuis les fonctions serveur)

@@ -1,38 +1,45 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { createContext, useContext, useState } from 'react'
+import { getSession, setSession, clearSession } from './auth'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [session, setSessionState] = useState(() => getSession())
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess)
-    })
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  async function signIn(email, password) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+  async function signIn(userId, pin) {
+    try {
+      const res = await fetch('/.netlify/functions/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, pin }),
+      })
+      const body = await res.json()
+      if (!res.ok) return { error: body.error || 'Connexion refusée.' }
+      setSession(body)
+      setSessionState(body)
+      return { error: null }
+    } catch (e) {
+      return { error: e.message }
+    }
   }
 
-  async function signOut() {
-    await supabase.auth.signOut()
+  function signOut() {
+    clearSession()
+    setSessionState(null)
   }
-
-  const meta = session?.user?.app_metadata || {}
-  const role = meta.role === 'technicien' ? 'technicien' : 'admin'
-  const technicienName = meta.technicien_name || null
 
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut, role, technicienName }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        loading: false,
+        signIn,
+        signOut,
+        role: session?.role === 'technicien' ? 'technicien' : session ? 'admin' : null,
+        technicienName: session?.technicien_name || null,
+        name: session?.name || null,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -1,17 +1,16 @@
 // Fonction serveur : écrit dans repair_assignments (la seule table où l'app
-// peut écrire), après vérification de l'authentification et du rôle.
+// peut écrire), après vérification du jeton de session (PIN) et du rôle.
 //
 // - admin : peut modifier technicien / action / commentaire de n'importe
 //   quel appareil.
 // - technicien : peut UNIQUEMENT modifier tech_commentaire / task_done sur
-//   un appareil qui lui est déjà affecté (vérifié côté serveur, jamais fait
-//   confiance au client).
+//   un appareil qui lui est déjà affecté (vérifié côté serveur).
 //
-// Mêmes variables d'environnement que planning.js :
-//   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY
+// Variables d'environnement requises (Netlify) :
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_shared/auth.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -24,21 +23,13 @@ export async function handler(event) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Configuration serveur manquante (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).' }) }
   }
 
-  const authHeader = event.headers.authorization || event.headers.Authorization
-  const token = authHeader?.replace(/^Bearer\s+/i, '')
-  if (!token) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Non authentifié.' }) }
-  }
+  const { error: authError, claims } = requireAuth(event)
+  if (authError) return authError
+
+  const role = claims.role === 'technicien' ? 'technicien' : 'admin'
+  const technicienName = claims.technicien_name || null
 
   const admin = createClient(supabaseUrl, serviceKey)
-  const { data: userData, error: authError } = await admin.auth.getUser(token)
-  if (authError || !userData?.user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Session invalide, merci de vous reconnecter.' }) }
-  }
-
-  const meta = userData.user.app_metadata || {}
-  const role = meta.role === 'technicien' ? 'technicien' : 'admin'
-  const technicienName = meta.technicien_name || null
 
   let payload
   try {
@@ -75,7 +66,7 @@ export async function handler(event) {
     // Rôle technicien : uniquement sur ses propres appareils, uniquement
     // tech_commentaire / task_done.
     if (!technicienName) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Compte technicien non configuré (technicien_name manquant).' }) }
+      return { statusCode: 403, body: JSON.stringify({ error: 'Compte technicien non configuré.' }) }
     }
 
     const { data: current, error: fetchErr } = await admin

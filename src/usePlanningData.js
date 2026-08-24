@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { authedFetch } from './auth'
 
 export function usePlanningData() {
   const [devices, setDevices] = useState([])
@@ -11,18 +11,7 @@ export function usePlanningData() {
     setLoading(true)
     setError(null)
     try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData.session?.access_token
-      if (!token) {
-        setError('Session expirée, merci de vous reconnecter.')
-        setLoading(false)
-        return
-      }
-      const res = await fetch('/.netlify/functions/planning', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const body = await res.json()
-      if (!res.ok) throw new Error(body.error || `Erreur ${res.status}`)
+      const body = await authedFetch('/.netlify/functions/planning')
       setDevices(body.devices || [])
       setTechnicians(body.technicians || [])
     } catch (e) {
@@ -35,22 +24,10 @@ export function usePlanningData() {
   useEffect(() => { load() }, [load])
 
   const saveAssignment = useCallback(async (barcode, fields) => {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
-    if (!token) throw new Error('Session expirée, merci de vous reconnecter.')
-
-    const res = await fetch('/.netlify/functions/assign', {
+    await authedFetch('/.netlify/functions/assign', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ barcode, ...fields }),
     })
-    const body = await res.json()
-    if (!res.ok) throw new Error(body.error || `Erreur ${res.status}`)
-
-    // Mise à jour optimiste locale, sans tout recharger
     setDevices(prev => prev.map(d => (d.barcode === barcode ? { ...d, ...fields } : d)))
   }, [])
 

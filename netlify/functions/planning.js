@@ -1,13 +1,12 @@
 // Fonction serveur : lit export_devices_report, users et repair_assignments
 // avec la clé service_role (jamais exposée au navigateur), après avoir
-// vérifié que l'appelant est authentifié via un token Supabase Auth valide.
+// vérifié le jeton de session (PIN) émis par login.js.
 //
-// Variables d'environnement requises (à définir dans Netlify, PAS dans le
-// bundle client) :
-//   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY   (clé secrète — jamais préfixée VITE_)
+// Variables d'environnement requises (Netlify) :
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from './_shared/auth.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -37,24 +36,13 @@ export async function handler(event) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Configuration serveur manquante (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).' }) }
   }
 
-  // 1. Vérifier l'authentification (token Supabase Auth passé par le client)
-  const authHeader = event.headers.authorization || event.headers.Authorization
-  const token = authHeader?.replace(/^Bearer\s+/i, '')
-  if (!token) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Non authentifié.' }) }
-  }
+  const { error: authError, claims } = requireAuth(event)
+  if (authError) return authError
+
+  const role = claims.role === 'technicien' ? 'technicien' : 'admin'
+  const technicienName = claims.technicien_name || null
 
   const admin = createClient(supabaseUrl, serviceKey)
-  const { data: userData, error: authError } = await admin.auth.getUser(token)
-  if (authError || !userData?.user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Session invalide, merci de vous reconnecter.' }) }
-  }
-
-  // Rôle stocké dans app_metadata (non modifiable côté client). Sans rôle
-  // explicite, le compte est traité comme admin (voir supabase_schema.sql).
-  const meta = userData.user.app_metadata || {}
-  const role = meta.role === 'technicien' ? 'technicien' : 'admin'
-  const technicienName = meta.technicien_name || null
 
   try {
     const [devicesRes, assignmentsRes, techsRes] = await Promise.all([

@@ -47,12 +47,15 @@ export async function handler(event) {
 
   try {
     // 1. Retrouver la personne + son rôle dans le projet principal
-    const { data: person, error: personErr } = await admin
+    // (select() + limite manuelle plutôt que .maybeSingle(), pour ne pas
+    // planter si l'id existe en double par accident)
+    const { data: personRows, error: personErr } = await admin
       .from('users')
       .select('id, name, email, roles, deleted')
       .eq('id', user_id)
-      .maybeSingle()
+      .limit(1)
     if (personErr) throw personErr
+    const person = personRows?.[0] || null
     const role = person && !person.deleted ? roleOf(person.roles) : null
     if (!person || !role) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Compte inconnu ou non autorisé.' }) }
@@ -61,13 +64,16 @@ export async function handler(event) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Aucun email associé à ce compte, connexion impossible.' }) }
     }
 
-    // 2. Vérifier le PIN dans le second projet (table collaborateurs), par email
-    const { data: collabRow, error: collabErr } = await collab
+    // 2. Vérifier le PIN dans le second projet (table collaborateurs), par
+    // email. Si plusieurs lignes correspondent (doublon dans la table),
+    // on prend la première plutôt que de planter.
+    const { data: collabRows, error: collabErr } = await collab
       .from('collaborateurs')
       .select('pin, email')
       .ilike('email', person.email)
-      .maybeSingle()
+      .limit(1)
     if (collabErr) throw collabErr
+    const collabRow = collabRows?.[0] || null
 
     if (!collabRow || collabRow.pin === null || collabRow.pin === undefined) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Aucun code PIN trouvé pour ce compte.' }) }

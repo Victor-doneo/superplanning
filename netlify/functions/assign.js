@@ -21,11 +21,12 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 async function logTaskDone(admin, barcode, technicien, action) {
   try {
-    const { data: device } = await admin
+    const { data: deviceRows } = await admin
       .from('export_devices_report')
       .select('area, subarea, brand_name, service_sub_category_name')
       .eq('barcode', barcode)
-      .maybeSingle()
+      .limit(1)
+    const device = deviceRows?.[0] || null
     await admin.from('repair_task_events').insert({
       barcode,
       technicien: technicien || null,

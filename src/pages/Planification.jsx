@@ -17,6 +17,16 @@ function StatusBadge({ statut }) {
   return <span className={`badge badge-${color}`}>{statut}</span>
 }
 
+const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
+
+function zoneTypeOf(area) {
+  if (!area) return 'Autres zones'
+  if (area === 'Zone attente validation') return 'Zone attente validation'
+  if (area === 'Zone qualité') return 'Zone qualité'
+  if (area.startsWith('Ligne')) return 'Zone bancs'
+  return 'Autres zones'
+}
+
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
 
 function EditableRow({ device, technicienNames, onSave }) {
@@ -90,11 +100,16 @@ export default function Planification() {
 
   const [search, setSearch] = useState('')
   const [ligneFilter, setLigneFilter] = useState('')
+  const [zoneTypeFilter, setZoneTypeFilter] = useState('')
   const [technicienFilter, setTechnicienFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState('')
 
   const lignes = useMemo(
     () => [...new Set(devices.map(d => d.area).filter(Boolean))].sort(),
+    [devices]
+  )
+  const zoneTypesPresent = useMemo(
+    () => ZONE_TYPES.filter(zt => devices.some(d => zoneTypeOf(d.area) === zt)),
     [devices]
   )
   const statuts = useMemo(
@@ -108,6 +123,7 @@ export default function Planification() {
 
   const filtered = useMemo(() => {
     return devices.filter(d => {
+      if (zoneTypeFilter && zoneTypeOf(d.area) !== zoneTypeFilter) return false
       if (ligneFilter && d.area !== ligneFilter) return false
       if (technicienFilter && d.technicien !== technicienFilter) return false
       if (statutFilter && d.status !== statutFilter) return false
@@ -119,7 +135,7 @@ export default function Planification() {
       }
       return true
     })
-  }, [devices, ligneFilter, technicienFilter, statutFilter, search])
+  }, [devices, zoneTypeFilter, ligneFilter, technicienFilter, statutFilter, search])
 
   const assigned = devices.filter(d => d.technicien).length
 
@@ -163,9 +179,15 @@ export default function Planification() {
                   onChange={e => setSearch(e.target.value)}
                 />
               </div>
+              <select className="form-input" value={zoneTypeFilter} onChange={e => { setZoneTypeFilter(e.target.value); setLigneFilter('') }}>
+                <option value="">Tous les types de zone</option>
+                {zoneTypesPresent.map(zt => <option key={zt} value={zt}>{zt}</option>)}
+              </select>
               <select className="form-input" value={ligneFilter} onChange={e => setLigneFilter(e.target.value)}>
                 <option value="">Toutes les lignes</option>
-                {lignes.map(l => <option key={l} value={l}>{l}</option>)}
+                {lignes
+                  .filter(l => !zoneTypeFilter || zoneTypeOf(l) === zoneTypeFilter)
+                  .map(l => <option key={l} value={l}>{l}</option>)}
               </select>
               <select className="form-input" value={technicienFilter} onChange={e => setTechnicienFilter(e.target.value)}>
                 <option value="">Tous les techniciens</option>

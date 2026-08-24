@@ -162,6 +162,36 @@ body {
 .login-error { background: var(--red-light); color: #991b1b; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); margin-top: 8px; }
 .login-card button[type="submit"] { margin-top: 16px; padding: 10px; }
 
+/* ---- Mes tâches (technicien) ---- */
+.tech-page { min-height: 100vh; background: var(--gray-bg); }
+.tech-topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--navy); color: white;
+  padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+}
+.tech-topbar-title { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.tech-topbar-sub { font-size: 12px; color: rgba(255,255,255,0.5); }
+.tech-topbar .btn-icon { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); color: white; }
+.tech-topbar .btn-icon:hover { background: rgba(255,255,255,0.15); }
+
+.tech-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; max-width: 640px; margin: 0 auto; }
+.tech-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-500); padding: 4px 2px; }
+
+.task-card {
+  background: white; border: 1px solid var(--gray-200); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 10px;
+}
+.task-card-done { opacity: 0.6; }
+.task-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.task-card-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.task-card-sub { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+.task-card-meta { display: flex; gap: 16px; font-size: 12.5px; color: var(--gray-500); flex-wrap: wrap; }
+.task-card-action { font-size: 13px; background: var(--blue-light); color: #1e40af; padding: 6px 10px; border-radius: var(--radius-sm); }
+.task-card-admin-comment { font-size: 13px; color: var(--gray-600); background: var(--gray-50); padding: 6px 10px; border-radius: var(--radius-sm); }
+
+.task-done-btn { justify-content: center; padding: 10px; font-weight: 500; }
+.task-done-btn-active { background: var(--green-light); border-color: var(--green); color: #065f46; }
+
 @media (max-width: 768px) {
   .mobile-topbar { display: flex; }
   .sidebar-close { display: flex; }

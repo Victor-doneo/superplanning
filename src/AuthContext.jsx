@@ -27,8 +27,12 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  const meta = session?.user?.app_metadata || {}
+  const role = meta.role === 'technicien' ? 'technicien' : 'admin'
+  const technicienName = meta.technicien_name || null
+
   return (
-    <AuthContext.Provider value={{ session, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signIn, signOut, role, technicienName }}>
       {children}
     </AuthContext.Provider>
   )

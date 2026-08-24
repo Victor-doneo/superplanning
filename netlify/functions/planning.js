@@ -50,6 +50,12 @@ export async function handler(event) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Session invalide, merci de vous reconnecter.' }) }
   }
 
+  // Rôle stocké dans app_metadata (non modifiable côté client). Sans rôle
+  // explicite, le compte est traité comme admin (voir supabase_schema.sql).
+  const meta = userData.user.app_metadata || {}
+  const role = meta.role === 'technicien' ? 'technicien' : 'admin'
+  const technicienName = meta.technicien_name || null
+
   try {
     const [devicesRes, assignmentsRes, techsRes] = await Promise.all([
       admin.from('export_devices_report').select('*'),
@@ -99,8 +105,16 @@ export async function handler(event) {
           technicien: a?.technicien || null,
           action: a?.action || null,
           commentaire: a?.commentaire || null,
+          tech_commentaire: a?.tech_commentaire || null,
+          task_done: a?.task_done || false,
+          task_done_at: a?.task_done_at || null,
           status_since: statusSince,
         }
+      })
+      .filter(d => {
+        if (role !== 'technicien') return true
+        if (!technicienName) return false
+        return d.technicien === technicienName
       })
 
     // Enregistrer les changements détectés (ne touche pas technicien/action/commentaire)
@@ -118,7 +132,11 @@ export async function handler(event) {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ devices, technicians }),
+      body: JSON.stringify({
+        devices,
+        technicians,
+        viewer: { role, technicienName },
+      }),
     }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: err.message || String(err) }) }

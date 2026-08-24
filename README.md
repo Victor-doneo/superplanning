@@ -90,6 +90,18 @@ npx netlify dev
 Supabase → Authentication → Users → Add user, pour chaque personne devant
 accéder à l'app.
 
+**Attribuer un rôle (important)** : ouvrez `supabase_schema.sql`, section
+"Rôles des comptes de connexion", et exécutez dans l'éditeur SQL Supabase la
+requête correspondante (admin ou technicien) pour chaque compte créé — en
+adaptant l'email (et le nom exact du technicien pour un compte technicien).
+**Un compte sans rôle explicite est traité comme admin.**
+
+- Compte **admin** : accède à Planification (vue complète, affectation) et
+  Collaborateurs.
+- Compte **technicien** : accède uniquement à "Mes tâches" — les appareils
+  qui lui sont affectés, avec son propre commentaire et un bouton "Tâche
+  réalisée". Il ne voit ni les autres techniciens, ni les autres appareils.
+
 ### 6. Déployer sur Netlify
 
 1. Pousser ce dépôt sur GitHub, puis l'importer dans Netlify.

@@ -6,6 +6,8 @@ import Login from './pages/Login.jsx'
 import Planification from './pages/Planification.jsx'
 import Collaborateurs from './pages/Collaborateurs.jsx'
 import MesTaches from './pages/MesTaches.jsx'
+import Taches from './pages/Taches.jsx'
+import SuiviTechnicien from './pages/SuiviTechnicien.jsx'
 import Pins from './pages/Pins.jsx'
 
 function RoleHome() {
@@ -32,6 +34,8 @@ export default function App() {
           <Route element={<RequireRole role="admin"><Layout /></RequireRole>}>
             <Route path="/planification" element={<Planification />} />
             <Route path="/collaborateurs" element={<Collaborateurs />} />
+            <Route path="/taches" element={<Taches />} />
+            <Route path="/suivi-technicien" element={<SuiviTechnicien />} />
             <Route path="/acces" element={<Pins />} />
           </Route>
         </Route>

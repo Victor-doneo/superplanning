@@ -1,10 +1,14 @@
 // Fonction serveur : écrit dans repair_assignments (la seule table où l'app
-// peut écrire), après vérification du jeton de session (PIN) et du rôle.
+// peut écrire), après vérification du jeton de session et du rôle.
 //
-// - admin : peut modifier technicien / action / commentaire de n'importe
-//   quel appareil.
-// - technicien : peut UNIQUEMENT modifier tech_commentaire / task_done sur
-//   un appareil qui lui est déjà affecté (vérifié côté serveur).
+// - admin : contrôle total (technicien / action / commentaire / son propre
+//   commentaire technicien / tâche réalisée — un admin peut aussi être
+//   affecté à des tâches).
+// - technicien : uniquement tech_commentaire / task_done sur un appareil
+//   qui lui est déjà affecté (vérifié côté serveur).
+//
+// Chaque passage de task_done à true est journalisé dans
+// repair_task_events (historique, indépendant de repair_assignments).
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -14,6 +18,27 @@ import { requireAuth } from './_shared/auth.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+async function logTaskDone(admin, barcode, technicien, action) {
+  try {
+    const { data: device } = await admin
+      .from('export_devices_report')
+      .select('area, subarea, brand_name, service_sub_category_name')
+      .eq('barcode', barcode)
+      .maybeSingle()
+    await admin.from('repair_task_events').insert({
+      barcode,
+      technicien: technicien || null,
+      action: action || null,
+      area: device?.area || null,
+      subarea: device?.subarea || null,
+      brand_name: device?.brand_name || null,
+      service_sub_category_name: device?.service_sub_category_name || null,
+    })
+  } catch (e) {
+    console.error('Erreur journalisation tâche réalisée :', e.message)
+  }
+}
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {
@@ -27,7 +52,7 @@ export async function handler(event) {
   if (authError) return authError
 
   const role = claims.role === 'technicien' ? 'technicien' : 'admin'
-  const technicienName = claims.technicien_name || null
+  const technicienName = claims.technicien_name || claims.name || null
 
   const admin = createClient(supabaseUrl, serviceKey)
 
@@ -46,20 +71,24 @@ export async function handler(event) {
 
   try {
     if (role === 'admin') {
-      const { technicien, action, commentaire } = payload
-      const { error } = await admin
-        .from('repair_assignments')
-        .upsert(
-          {
-            barcode: bc,
-            technicien: technicien || null,
-            action: action || null,
-            commentaire: commentaire || null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'barcode' }
-        )
+      const { technicien, action, commentaire, tech_commentaire, task_done } = payload
+      const update = { barcode: bc, updated_at: new Date().toISOString() }
+      if (technicien !== undefined) update.technicien = technicien || null
+      if (action !== undefined) update.action = action || null
+      if (commentaire !== undefined) update.commentaire = commentaire || null
+      if (tech_commentaire !== undefined) update.tech_commentaire = tech_commentaire || null
+      if (task_done !== undefined) {
+        update.task_done = !!task_done
+        update.task_done_at = task_done ? new Date().toISOString() : null
+      }
+
+      const { error } = await admin.from('repair_assignments').upsert(update, { onConflict: 'barcode' })
       if (error) throw error
+
+      if (task_done === true) {
+        await logTaskDone(admin, bc, technicien ?? technicienName, action)
+      }
+
       return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true }) }
     }
 
@@ -71,7 +100,7 @@ export async function handler(event) {
 
     const { data: current, error: fetchErr } = await admin
       .from('repair_assignments')
-      .select('barcode, technicien')
+      .select('barcode, technicien, action')
       .eq('barcode', bc)
       .maybeSingle()
     if (fetchErr) throw fetchErr
@@ -93,6 +122,10 @@ export async function handler(event) {
       .update(update)
       .eq('barcode', bc)
     if (updateErr) throw updateErr
+
+    if (task_done === true) {
+      await logTaskDone(admin, bc, technicienName, current.action)
+    }
 
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true }) }
   } catch (err) {

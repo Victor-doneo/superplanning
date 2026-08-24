@@ -1,23 +1,10 @@
 import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
+import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
 import { RefreshCw, Search } from 'lucide-react'
 
-const STATUS_COLORS = {
-  'En attente de mise en test': 'gray',
-  'Mise en test': 'green',
-  'Attente pièces': 'yellow',
-  'Contrôle qualité': 'orange',
-  'Appareil à démonter': 'red',
-  'Restitution partenaire': 'red',
-}
-
-function StatusBadge({ statut }) {
-  if (!statut) return <span className="badge badge-gray">—</span>
-  const color = STATUS_COLORS[statut] || 'gray'
-  return <span className={`badge badge-${color}`}>{statut}</span>
-}
-
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
+const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
 
 function zoneTypeOf(area) {
   if (!area) return 'Autres zones'
@@ -27,17 +14,7 @@ function zoneTypeOf(area) {
   return 'Autres zones'
 }
 
-function formatSince(iso) {
-  if (!iso) return '—'
-  const diffMs = Date.now() - new Date(iso).getTime()
-  if (diffMs < 0) return '0 j'
-  const days = Math.floor(diffMs / 86400000)
-  return `${days} j`
-}
-
-const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
-
-function EditableRow({ device, technicienNames, onSave }) {
+function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }) {
   const [technicien, setTechnicien] = useState(device.technicien || '')
   const [action, setAction] = useState(device.action || '')
   const [commentaire, setCommentaire] = useState(device.commentaire || '')
@@ -58,14 +35,17 @@ function EditableRow({ device, technicienNames, onSave }) {
   }
 
   return (
-    <tr>
+    <tr className={checked ? 'row-selected' : ''}>
+      <td className="td-checkbox">
+        <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
+      </td>
       <td className="font-bold">{device.area || '—'}</td>
       <td>{device.subarea || '—'}</td>
       <td>{device.barcode}</td>
       <td>{device.service_sub_category_name || '—'}</td>
       <td>{device.brand_name || '—'}</td>
       <td><StatusBadge statut={device.status} /></td>
-      <td className="text-sm text-gray">{formatSince(device.status_since)}</td>
+      <td className={`text-sm ${sinceClass(device.status_since)}`}>{formatSince(device.status_since)}</td>
       <td>
         <select
           className="form-input"
@@ -89,16 +69,16 @@ function EditableRow({ device, technicienNames, onSave }) {
       <td>
         <input
           className="form-input"
-          style={{ minWidth: 180 }}
+          style={{ minWidth: 140 }}
           value={commentaire}
           onChange={e => setCommentaire(e.target.value)}
           onBlur={() => persist({ technicien, action, commentaire })}
           placeholder="Commentaire…"
         />
       </td>
-      <td style={{ width: 24 }}>
-        {saving && <RefreshCw size={13} className="spin text-gray" />}
-        {!saving && savedFlash && <span className="text-sm" style={{ color: 'var(--green)' }}>✓</span>}
+      <td style={{ width: 20 }}>
+        {saving && <RefreshCw size={12} className="spin text-gray" />}
+        {!saving && savedFlash && <span style={{ color: 'var(--green)' }}>✓</span>}
       </td>
     </tr>
   )
@@ -112,6 +92,10 @@ export default function Planification() {
   const [zoneTypeFilter, setZoneTypeFilter] = useState('')
   const [technicienFilter, setTechnicienFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState('')
+  const [selected, setSelected] = useState(() => new Set())
+  const [bulkTechnicien, setBulkTechnicien] = useState('')
+  const [bulkAction, setBulkAction] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
 
   const lignes = useMemo(
     () => [...new Set(devices.map(d => d.area).filter(Boolean))].sort(),
@@ -151,6 +135,38 @@ export default function Planification() {
   const assigned = devices.filter(d => d.technicien).length
   const enZoneBancs = devices.filter(d => zoneTypeOf(d.area) === 'Zone bancs').length
 
+  function toggleCheck(barcode) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(barcode)) next.delete(barcode); else next.add(barcode)
+      return next
+    })
+  }
+  function toggleAll() {
+    setSelected(prev => (prev.size === filtered.length ? new Set() : new Set(filtered.map(d => d.barcode))))
+  }
+
+  async function applyBulk() {
+    if (selected.size === 0) return
+    setBulkSaving(true)
+    try {
+      const fields = {}
+      if (bulkTechnicien) fields.technicien = bulkTechnicien
+      if (bulkAction) fields.action = bulkAction
+      if (Object.keys(fields).length === 0) { alert('Choisissez un technicien et/ou une action à appliquer.'); return }
+      for (const barcode of selected) {
+        await saveAssignment(barcode, fields)
+      }
+      setSelected(new Set())
+      setBulkTechnicien('')
+      setBulkAction('')
+    } catch (e) {
+      alert("Échec de l'affectation groupée : " + e.message)
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -159,25 +175,25 @@ export default function Planification() {
       </div>
 
       <div className="page-body">
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-label">Unités en atelier</div>
+        <div className="stats-grid stats-grid-compact">
+          <div className="stat-card stat-card-compact">
+            <div className="stat-label">Unités</div>
             <div className="stat-value">{devices.length}</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card stat-card-compact">
             <div className="stat-label">En zone bancs</div>
             <div className="stat-value">{enZoneBancs}</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">Affectées à un technicien</div>
+          <div className="stat-card stat-card-compact">
+            <div className="stat-label">Affectées</div>
             <div className="stat-value">{assigned}</div>
           </div>
-          <div className="stat-card">
+          <div className="stat-card stat-card-compact">
             <div className="stat-label">Lignes actives</div>
             <div className="stat-value">{lignes.length}</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">Techniciens réparation</div>
+          <div className="stat-card stat-card-compact">
+            <div className="stat-label">Techniciens</div>
             <div className="stat-value">{technicians.length}</div>
           </div>
         </div>
@@ -190,7 +206,7 @@ export default function Planification() {
                 <Search size={14} />
                 <input
                   className="form-input search-input"
-                  placeholder="Rechercher (code-barres, marque, type...)"
+                  placeholder="Rechercher…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -219,19 +235,40 @@ export default function Planification() {
             </div>
           </div>
 
+          {selected.size > 0 && (
+            <div className="bulk-toolbar">
+              <span className="text-sm font-bold">{selected.size} sélectionnée{selected.size > 1 ? 's' : ''}</span>
+              <select className="form-input" value={bulkTechnicien} onChange={e => setBulkTechnicien(e.target.value)}>
+                <option value="">Affecter à…</option>
+                {technicienNames.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select className="form-input" value={bulkAction} onChange={e => setBulkAction(e.target.value)}>
+                <option value="">Action…</option>
+                {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <button className="btn btn-primary" onClick={applyBulk} disabled={bulkSaving}>
+                {bulkSaving ? 'Application…' : 'Appliquer'}
+              </button>
+              <button className="btn" onClick={() => setSelected(new Set())}>Annuler la sélection</button>
+            </div>
+          )}
+
           <div className="table-wrapper">
             {error && <div className="empty-state"><div className="empty-state-title">Erreur</div><div className="empty-state-sub">{error}</div></div>}
             {!error && loading && <div className="loading-state">Chargement…</div>}
             {!error && !loading && filtered.length === 0 && (
               <div className="empty-state">
                 <div className="empty-state-title">Aucune unité trouvée</div>
-                <div className="empty-state-sub">Ajuste les filtres, ou vérifie que la fonction serveur est bien configurée (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).</div>
+                <div className="empty-state-sub">Ajuste les filtres, ou vérifie que la fonction serveur est bien configurée.</div>
               </div>
             )}
             {!error && !loading && filtered.length > 0 && (
-              <table className="table">
+              <table className="table table-compact">
                 <thead>
                   <tr>
+                    <th className="td-checkbox">
+                      <input type="checkbox" checked={selected.size === filtered.length} onChange={toggleAll} />
+                    </th>
                     <th>Ligne</th>
                     <th>Banc</th>
                     <th>Code-barres</th>
@@ -247,7 +284,14 @@ export default function Planification() {
                 </thead>
                 <tbody>
                   {filtered.map(d => (
-                    <EditableRow key={d.barcode} device={d} technicienNames={technicienNames} onSave={saveAssignment} />
+                    <EditableRow
+                      key={d.barcode}
+                      device={d}
+                      technicienNames={technicienNames}
+                      onSave={saveAssignment}
+                      checked={selected.has(d.barcode)}
+                      onToggleCheck={toggleCheck}
+                    />
                   ))}
                 </tbody>
               </table>

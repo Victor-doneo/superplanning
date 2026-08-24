@@ -42,6 +42,27 @@ ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
 -- contourne RLS par nature — la table reste invisible à la clé anonyme)
 
 -- ============================================================
+-- Historique des tâches réalisées (pour l'onglet "Suivi technicien")
+-- ============================================================
+-- Journal append-only : une ligne ajoutée à chaque fois qu'une tâche est
+-- marquée "réalisée". Permet de garder une trace même si l'appareil change
+-- ensuite de statut/technicien (ce que repair_assignments seul ne permet pas).
+CREATE TABLE IF NOT EXISTS repair_task_events (
+    id                          SERIAL PRIMARY KEY,
+    barcode                     TEXT,
+    technicien                  TEXT,
+    action                      TEXT,
+    area                        TEXT,
+    subarea                     TEXT,
+    brand_name                  TEXT,
+    service_sub_category_name   TEXT,
+    created_at                  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE repair_task_events ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_task_events_technicien ON repair_task_events(technicien);
+CREATE INDEX IF NOT EXISTS idx_task_events_created_at ON repair_task_events(created_at);
+
+-- ============================================================
 -- Codes PIN de connexion
 -- ============================================================
 -- Les PIN sont gérés dans un AUTRE projet Supabase, table

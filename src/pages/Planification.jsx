@@ -17,8 +17,76 @@ function StatusBadge({ statut }) {
   return <span className={`badge badge-${color}`}>{statut}</span>
 }
 
+const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
+
+function EditableRow({ device, technicienNames, onSave }) {
+  const [technicien, setTechnicien] = useState(device.technicien || '')
+  const [action, setAction] = useState(device.action || '')
+  const [commentaire, setCommentaire] = useState(device.commentaire || '')
+  const [saving, setSaving] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  async function persist(fields) {
+    setSaving(true)
+    try {
+      await onSave(device.barcode, fields)
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 1200)
+    } catch (e) {
+      alert("Échec de l'enregistrement : " + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <tr>
+      <td className="font-bold">{device.area || '—'}</td>
+      <td>{device.subarea || '—'}</td>
+      <td>{device.barcode}</td>
+      <td>{device.service_sub_category_name || '—'}</td>
+      <td>{device.brand_name || '—'}</td>
+      <td><StatusBadge statut={device.status} /></td>
+      <td>
+        <select
+          className="form-input"
+          value={technicien}
+          onChange={e => { setTechnicien(e.target.value); persist({ technicien: e.target.value, action, commentaire }) }}
+        >
+          <option value="">—</option>
+          {technicienNames.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </td>
+      <td>
+        <select
+          className="form-input"
+          value={action}
+          onChange={e => { setAction(e.target.value); persist({ technicien, action: e.target.value, commentaire }) }}
+        >
+          <option value="">—</option>
+          {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </td>
+      <td>
+        <input
+          className="form-input"
+          style={{ minWidth: 180 }}
+          value={commentaire}
+          onChange={e => setCommentaire(e.target.value)}
+          onBlur={() => persist({ technicien, action, commentaire })}
+          placeholder="Commentaire…"
+        />
+      </td>
+      <td style={{ width: 24 }}>
+        {saving && <RefreshCw size={13} className="spin text-gray" />}
+        {!saving && savedFlash && <span className="text-sm" style={{ color: 'var(--green)' }}>✓</span>}
+      </td>
+    </tr>
+  )
+}
+
 export default function Planification() {
-  const { devices, technicians, loading, error, reload } = usePlanningData()
+  const { devices, technicians, loading, error, reload, saveAssignment } = usePlanningData()
 
   const [search, setSearch] = useState('')
   const [ligneFilter, setLigneFilter] = useState('')
@@ -135,21 +203,12 @@ export default function Planification() {
                     <th>Technicien</th>
                     <th>Action</th>
                     <th>Commentaire</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(d => (
-                    <tr key={d.barcode}>
-                      <td className="font-bold">{d.area || '—'}</td>
-                      <td>{d.subarea || '—'}</td>
-                      <td>{d.barcode}</td>
-                      <td>{d.service_sub_category_name || '—'}</td>
-                      <td>{d.brand_name || '—'}</td>
-                      <td><StatusBadge statut={d.status} /></td>
-                      <td>{d.technicien || '—'}</td>
-                      <td>{d.action || '—'}</td>
-                      <td className="text-sm text-gray" style={{ maxWidth: 260 }}>{d.commentaire || '—'}</td>
-                    </tr>
+                    <EditableRow key={d.barcode} device={d} technicienNames={technicienNames} onSave={saveAssignment} />
                   ))}
                 </tbody>
               </table>

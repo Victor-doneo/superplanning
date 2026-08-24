@@ -34,5 +34,25 @@ export function usePlanningData() {
 
   useEffect(() => { load() }, [load])
 
-  return { devices, technicians, loading, error, reload: load }
+  const saveAssignment = useCallback(async (barcode, fields) => {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (!token) throw new Error('Session expirée, merci de vous reconnecter.')
+
+    const res = await fetch('/.netlify/functions/assign', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ barcode, ...fields }),
+    })
+    const body = await res.json()
+    if (!res.ok) throw new Error(body.error || `Erreur ${res.status}`)
+
+    // Mise à jour optimiste locale, sans tout recharger
+    setDevices(prev => prev.map(d => (d.barcode === barcode ? { ...d, ...fields } : d)))
+  }, [])
+
+  return { devices, technicians, loading, error, reload: load, saveAssignment }
 }

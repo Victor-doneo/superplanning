@@ -3,12 +3,12 @@ import { usePlanningData } from '../usePlanningData'
 import { RefreshCw, Search } from 'lucide-react'
 
 const STATUS_COLORS = {
-  'Mise en test': 'blue',
-  'En attente de mise en test': 'orange',
-  'Attente pièces': 'orange',
-  'Contrôle qualité': 'green',
-  'Restitution partenaire': 'gray',
+  'En attente de mise en test': 'gray',
+  'Mise en test': 'green',
+  'Attente pièces': 'yellow',
+  'Contrôle qualité': 'orange',
   'Appareil à démonter': 'red',
+  'Restitution partenaire': 'red',
 }
 
 function StatusBadge({ statut }) {
@@ -30,12 +30,8 @@ function zoneTypeOf(area) {
 function formatSince(iso) {
   if (!iso) return '—'
   const diffMs = Date.now() - new Date(iso).getTime()
-  if (diffMs < 0) return '—'
-  const minutes = Math.floor(diffMs / 60000)
-  if (minutes < 60) return `${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} h`
-  const days = Math.floor(hours / 24)
+  if (diffMs < 0) return '0 j'
+  const days = Math.floor(diffMs / 86400000)
   return `${days} j`
 }
 

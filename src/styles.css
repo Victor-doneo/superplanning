@@ -104,6 +104,7 @@ body {
 .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 500; }
 .badge-blue { background: var(--blue-light); color: #1e40af; }
 .badge-orange { background: var(--orange-light); color: #92400e; }
+.badge-yellow { background: #fef9c3; color: #854d0e; }
 .badge-green { background: var(--green-light); color: #065f46; }
 .badge-red { background: var(--red-light); color: #991b1b; }
 .badge-gray { background: var(--gray-100); color: var(--gray-500); }

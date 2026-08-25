@@ -42,6 +42,27 @@ const COLUMNS = [
   { key: 'saveflag', label: '', width: 24 },
 ]
 
+// Valeur utilisée pour trier, par colonne. Les colonnes absentes de cette
+// liste (case à cocher, boutons...) ne sont pas triables.
+const SORT_ACCESSORS = {
+  ligne: d => d.area || '',
+  banc: d => (d.subarea === d.area ? '' : d.subarea || ''),
+  barcode: d => d.barcode || '',
+  type: d => d.service_sub_category_name || '',
+  marque: d => d.brand_name || '',
+  statut: d => d.status || '',
+  depuis: d => (d.status_since ? new Date(d.status_since).getTime() : 0),
+  technicien: d => d.technicien || '',
+  action: d => d.action || '',
+  commentaire: d => d.commentaire || '',
+  tech_commentaire: d => d.tech_commentaire || '',
+}
+
+function SortIndicator({ active, dir }) {
+  if (!active) return null
+  return <span className="sort-indicator">{dir === 'asc' ? '▲' : '▼'}</span>
+}
+
 function TacheStatusBadge({ device }) {
   if (device.task_done) {
     return <span className="badge badge-green"><CheckCircle2 size={11} style={{ verticalAlign: -1, marginRight: 3 }} />Réalisée</span>
@@ -155,6 +176,7 @@ export default function Planification() {
   const [technicienFilter, setTechnicienFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState('')
   const [selected, setSelected] = useState(() => new Set())
+  const [sortConfig, setSortConfig] = useState({ key: 'ligne', dir: 'asc' })
   const [bulkTechnicien, setBulkTechnicien] = useState('')
   const [bulkAction, setBulkAction] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
@@ -192,8 +214,29 @@ export default function Planification() {
         }
         return true
       })
-      .sort((a, b) => (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr'))
-  }, [devices, zoneTypeFilter, ligneFilter, technicienFilter, statutFilter, search])
+      .sort((a, b) => {
+        const accessor = SORT_ACCESSORS[sortConfig.key]
+        if (!accessor) return 0
+        const va = accessor(a)
+        const vb = accessor(b)
+        let cmp
+        if (typeof va === 'number' && typeof vb === 'number') {
+          cmp = va - vb
+        } else {
+          cmp = String(va).localeCompare(String(vb), 'fr')
+        }
+        // Tri secondaire stable par Ligne puis Banc, pour un ordre prévisible
+        if (cmp === 0 && sortConfig.key !== 'ligne') {
+          cmp = (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')
+        }
+        return sortConfig.dir === 'asc' ? cmp : -cmp
+      })
+  }, [devices, zoneTypeFilter, ligneFilter, technicienFilter, statutFilter, search, sortConfig])
+
+  function handleSort(key) {
+    if (!SORT_ACCESSORS[key]) return
+    setSortConfig(prev => (prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+  }
 
   const assigned = devices.filter(d => d.technicien).length
   const enZoneBancs = devices.filter(d => zoneTypeOf(d.area) === 'Zone bancs').length
@@ -357,17 +400,39 @@ export default function Planification() {
                     <ResizableTh index={0} width={widths[0]} onStartDrag={startDrag} className="td-checkbox">
                       <input type="checkbox" checked={selected.size === filtered.length} onChange={toggleAll} />
                     </ResizableTh>
-                    <ResizableTh index={1} width={widths[1]} onStartDrag={startDrag}>Ligne</ResizableTh>
-                    <ResizableTh index={2} width={widths[2]} onStartDrag={startDrag}>Banc</ResizableTh>
-                    <ResizableTh index={3} width={widths[3]} onStartDrag={startDrag}>Code-barres</ResizableTh>
-                    <ResizableTh index={4} width={widths[4]} onStartDrag={startDrag}>Type</ResizableTh>
-                    <ResizableTh index={5} width={widths[5]} onStartDrag={startDrag}>Marque</ResizableTh>
-                    <ResizableTh index={6} width={widths[6]} onStartDrag={startDrag}>Statut</ResizableTh>
-                    <ResizableTh index={7} width={widths[7]} onStartDrag={startDrag}>Depuis</ResizableTh>
-                    <ResizableTh index={8} width={widths[8]} onStartDrag={startDrag}>Technicien</ResizableTh>
-                    <ResizableTh index={9} width={widths[9]} onStartDrag={startDrag}>Action</ResizableTh>
-                    <ResizableTh index={10} width={widths[10]} onStartDrag={startDrag}>Commentaire</ResizableTh>
-                    <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>Comm. technicien</ResizableTh>
+                    <ResizableTh index={1} width={widths[1]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('ligne')}>Ligne<SortIndicator active={sortConfig.key === 'ligne'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={2} width={widths[2]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('banc')}>Banc<SortIndicator active={sortConfig.key === 'banc'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={3} width={widths[3]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('barcode')}>Code-barres<SortIndicator active={sortConfig.key === 'barcode'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={4} width={widths[4]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('type')}>Type<SortIndicator active={sortConfig.key === 'type'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={5} width={widths[5]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('marque')}>Marque<SortIndicator active={sortConfig.key === 'marque'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={6} width={widths[6]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('statut')}>Statut<SortIndicator active={sortConfig.key === 'statut'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={7} width={widths[7]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('depuis')}>Depuis<SortIndicator active={sortConfig.key === 'depuis'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={8} width={widths[8]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('technicien')}>Technicien<SortIndicator active={sortConfig.key === 'technicien'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={9} width={widths[9]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('action')}>Action<SortIndicator active={sortConfig.key === 'action'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={10} width={widths[10]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('commentaire')}>Commentaire<SortIndicator active={sortConfig.key === 'commentaire'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
+                    <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>
+                      <span className="th-sort-label" onClick={() => handleSort('tech_commentaire')}>Comm. technicien<SortIndicator active={sortConfig.key === 'tech_commentaire'} dir={sortConfig.dir} /></span>
+                    </ResizableTh>
                     <ResizableTh index={12} width={widths[12]} onStartDrag={startDrag}>Anomalie / Tâche</ResizableTh>
                     <th style={{ width: widths[13] }}></th>
                     <th style={{ width: widths[14] }}></th>

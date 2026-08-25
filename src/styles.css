@@ -226,6 +226,10 @@ body {
   cursor: col-resize; user-select: none; touch-action: none;
 }
 .col-resize-handle:hover, .col-resize-handle:active { background: var(--accent); opacity: 0.4; }
+
+.th-sort-label { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+.th-sort-label:hover { color: var(--accent); }
+.sort-indicator { font-size: 8px; color: var(--accent); }
 .row-selected { background: #eef2ff; }
 .row-selected:hover { background: #e0e7ff !important; }
 .row-pending { background: #fffbeb; }

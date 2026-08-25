@@ -7,39 +7,18 @@
 // - technicien : uniquement tech_commentaire / task_done sur un appareil
 //   qui lui est déjà affecté (vérifié côté serveur).
 //
-// Chaque passage de task_done à true est journalisé dans
-// repair_task_events (historique, indépendant de repair_assignments).
+// Chaque passage de task_done à true est journalisé dans repair_events
+// (historique, indépendant de repair_assignments).
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from './_shared/auth.js'
+import { logTaskDone } from './_shared/events.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-async function logTaskDone(admin, barcode, technicien, action) {
-  try {
-    const { data: deviceRows } = await admin
-      .from('export_devices_report')
-      .select('area, subarea, brand_name, service_sub_category_name')
-      .eq('barcode', barcode)
-      .limit(1)
-    const device = deviceRows?.[0] || null
-    await admin.from('repair_task_events').insert({
-      barcode,
-      technicien: technicien || null,
-      action: action || null,
-      area: device?.area || null,
-      subarea: device?.subarea || null,
-      brand_name: device?.brand_name || null,
-      service_sub_category_name: device?.service_sub_category_name || null,
-    })
-  } catch (e) {
-    console.error('Erreur journalisation tâche réalisée :', e.message)
-  }
-}
 
 export async function handler(event) {
   if (event.httpMethod !== 'POST') {

@@ -1,4 +1,5 @@
-// Fonction serveur : signale une anomalie sur un appareil précis.
+// Fonction serveur : signale une anomalie sur un appareil précis (écrit
+// dans repair_events, event_type='anomaly').
 // - technicien : uniquement sur un appareil qui lui est affecté.
 // - admin : sur n'importe quel appareil.
 //
@@ -7,6 +8,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from './_shared/auth.js'
+import { logAnomaly } from './_shared/events.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -46,7 +48,7 @@ export async function handler(event) {
     return { statusCode: 400, body: JSON.stringify({ error: 'barcode et type sont requis.' }) }
   }
   if (!ANOMALY_TYPES.includes(type)) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Type d\'anomalie inconnu.' }) }
+    return { statusCode: 400, body: JSON.stringify({ error: "Type d'anomalie inconnu." }) }
   }
   const bc = String(barcode)
 
@@ -67,24 +69,7 @@ export async function handler(event) {
       }
     }
 
-    const { data: deviceRows } = await admin
-      .from('export_devices_report')
-      .select('area, subarea, brand_name, service_sub_category_name')
-      .eq('barcode', bc)
-      .limit(1)
-    const device = deviceRows?.[0] || null
-
-    const { error } = await admin.from('repair_anomalies').insert({
-      barcode: bc,
-      technicien: technicienName,
-      type,
-      commentaire: commentaire || null,
-      area: device?.area || null,
-      subarea: device?.subarea || null,
-      brand_name: device?.brand_name || null,
-      service_sub_category_name: device?.service_sub_category_name || null,
-    })
-    if (error) throw error
+    await logAnomaly(admin, { barcode: bc, technicien: technicienName, type, commentaire })
 
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true }) }
   } catch (err) {

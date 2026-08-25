@@ -42,47 +42,45 @@ ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
 -- contourne RLS par nature — la table reste invisible à la clé anonyme)
 
 -- ============================================================
--- Historique des tâches réalisées (pour l'onglet "Suivi technicien")
+-- Journal des événements (tâches réalisées + anomalies signalées)
 -- ============================================================
--- Journal append-only : une ligne ajoutée à chaque fois qu'une tâche est
--- marquée "réalisée". Permet de garder une trace même si l'appareil change
--- ensuite de statut/technicien (ce que repair_assignments seul ne permet pas).
-CREATE TABLE IF NOT EXISTS repair_task_events (
+-- Journal append-only unique : une ligne à chaque tâche marquée "réalisée"
+-- ou anomalie signalée. Permet de garder une trace même si l'appareil
+-- change ensuite de statut/technicien (ce que repair_assignments seul ne
+-- permet pas). Un seul event_type ('task_done' | 'anomaly') distingue les
+-- deux natures d'événement plutôt que deux tables quasi identiques.
+CREATE TABLE IF NOT EXISTS repair_events (
     id                          SERIAL PRIMARY KEY,
+    event_type                  TEXT NOT NULL,  -- 'task_done' | 'anomaly'
     barcode                     TEXT,
     technicien                  TEXT,
-    action                      TEXT,
+    action                      TEXT,           -- rempli pour event_type = 'task_done'
+    anomaly_type                TEXT,           -- rempli pour event_type = 'anomaly' (une des 6 catégories)
+    commentaire                 TEXT,           -- détail libre pour une anomalie
     area                        TEXT,
     subarea                     TEXT,
     brand_name                  TEXT,
     service_sub_category_name   TEXT,
     created_at                  TIMESTAMPTZ DEFAULT NOW()
 );
-ALTER TABLE repair_task_events ENABLE ROW LEVEL SECURITY;
-CREATE INDEX IF NOT EXISTS idx_task_events_technicien ON repair_task_events(technicien);
-CREATE INDEX IF NOT EXISTS idx_task_events_created_at ON repair_task_events(created_at);
+ALTER TABLE repair_events ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_events_type ON repair_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_events_technicien ON repair_events(technicien);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON repair_events(created_at);
 
--- ============================================================
--- Anomalies remontées par les techniciens
--- ============================================================
--- Signalées depuis une tâche/appareil précis. Journal append-only, comme
--- repair_task_events, pour garder l'historique même si l'appareil est
--- ensuite réaffecté ou change de statut.
-CREATE TABLE IF NOT EXISTS repair_anomalies (
-    id                          SERIAL PRIMARY KEY,
-    barcode                     TEXT,
-    technicien                  TEXT,
-    type                        TEXT NOT NULL, -- une des 6 catégories fixes (voir front)
-    commentaire                 TEXT,
-    area                        TEXT,
-    subarea                     TEXT,
-    brand_name                  TEXT,
-    service_sub_category_name   TEXT,
-    created_at                  TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE repair_anomalies ENABLE ROW LEVEL SECURITY;
-CREATE INDEX IF NOT EXISTS idx_anomalies_technicien ON repair_anomalies(technicien);
-CREATE INDEX IF NOT EXISTS idx_anomalies_created_at ON repair_anomalies(created_at);
+-- Si vous aviez déjà déployé la version précédente (deux tables séparées),
+-- migrez les données existantes puis supprimez les anciennes tables :
+--
+-- insert into repair_events (event_type, barcode, technicien, action, area, subarea, brand_name, service_sub_category_name, created_at)
+-- select 'task_done', barcode, technicien, action, area, subarea, brand_name, service_sub_category_name, created_at
+-- from repair_task_events;
+--
+-- insert into repair_events (event_type, barcode, technicien, anomaly_type, commentaire, area, subarea, brand_name, service_sub_category_name, created_at)
+-- select 'anomaly', barcode, technicien, type, commentaire, area, subarea, brand_name, service_sub_category_name, created_at
+-- from repair_anomalies;
+--
+-- drop table if exists repair_task_events;
+-- drop table if exists repair_anomalies;
 
 -- ============================================================
 -- Codes PIN de connexion

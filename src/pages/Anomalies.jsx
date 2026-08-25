@@ -13,8 +13,8 @@ export default function Anomalies() {
     setLoading(true)
     setError(null)
     try {
-      const body = await authedFetch('/.netlify/functions/anomalies-log')
-      setAnomalies(body.anomalies || [])
+      const body = await authedFetch('/.netlify/functions/events-log?type=anomaly')
+      setAnomalies(body.events || [])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -24,11 +24,11 @@ export default function Anomalies() {
 
   useEffect(() => { load() }, [load])
 
-  const types = useMemo(() => [...new Set(anomalies.map(a => a.type))].sort(), [anomalies])
+  const types = useMemo(() => [...new Set(anomalies.map(a => a.anomaly_type))].sort(), [anomalies])
   const techniciens = useMemo(() => [...new Set(anomalies.map(a => a.technicien).filter(Boolean))].sort(), [anomalies])
 
   const filtered = anomalies.filter(a => {
-    if (typeFilter && a.type !== typeFilter) return false
+    if (typeFilter && a.anomaly_type !== typeFilter) return false
     if (technicienFilter && a.technicien !== technicienFilter) return false
     return true
   })
@@ -88,7 +88,7 @@ export default function Anomalies() {
                       <td>{a.area || '—'}</td>
                       <td>{a.subarea || '—'}</td>
                       <td>{a.barcode}</td>
-                      <td><span className="badge badge-orange">{a.type}</span></td>
+                      <td><span className="badge badge-orange">{a.anomaly_type}</span></td>
                       <td className="text-sm text-gray">{a.commentaire || '—'}</td>
                     </tr>
                   ))}

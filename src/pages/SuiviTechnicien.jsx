@@ -24,26 +24,18 @@ export default function SuiviTechnicien() {
   const [eventsLoading, setEventsLoading] = useState(false)
   const [eventsError, setEventsError] = useState(null)
 
-  const [anomalies, setAnomalies] = useState([])
-  const [anomaliesLoading, setAnomaliesLoading] = useState(false)
-  const [anomaliesError, setAnomaliesError] = useState(null)
-
   useEffect(() => {
-    if (!selected) { setEvents([]); setAnomalies([]); return }
+    if (!selected) { setEvents([]); return }
     setEventsLoading(true)
     setEventsError(null)
-    authedFetch(`/.netlify/functions/task-log?technicien=${encodeURIComponent(selected)}`)
+    authedFetch(`/.netlify/functions/events-log?technicien=${encodeURIComponent(selected)}`)
       .then(body => setEvents(body.events || []))
       .catch(e => setEventsError(e.message))
       .finally(() => setEventsLoading(false))
-
-    setAnomaliesLoading(true)
-    setAnomaliesError(null)
-    authedFetch(`/.netlify/functions/anomalies-log?technicien=${encodeURIComponent(selected)}`)
-      .then(body => setAnomalies(body.anomalies || []))
-      .catch(e => setAnomaliesError(e.message))
-      .finally(() => setAnomaliesLoading(false))
   }, [selected])
+
+  const doneEvents = events.filter(e => e.event_type === 'task_done')
+  const anomalyEvents = events.filter(e => e.event_type === 'anomaly')
 
   return (
     <>
@@ -89,15 +81,15 @@ export default function SuiviTechnicien() {
 
             <div className="card">
               <div className="card-header">
-                <span className="card-title">Réalisées aujourd'hui ({events.length})</span>
+                <span className="card-title">Réalisées aujourd'hui ({doneEvents.length})</span>
               </div>
               <div className="table-wrapper">
                 {eventsError && <div className="empty-state"><div className="empty-state-sub">{eventsError}</div></div>}
                 {!eventsError && eventsLoading && <div className="loading-state">Chargement…</div>}
-                {!eventsError && !eventsLoading && events.length === 0 && (
+                {!eventsError && !eventsLoading && doneEvents.length === 0 && (
                   <div className="empty-state"><div className="empty-state-sub">Aucune tâche réalisée aujourd'hui pour {selected}.</div></div>
                 )}
-                {!eventsError && !eventsLoading && events.length > 0 && (
+                {!eventsError && !eventsLoading && doneEvents.length > 0 && (
                   <table className="table">
                     <thead>
                       <tr>
@@ -110,7 +102,7 @@ export default function SuiviTechnicien() {
                       </tr>
                     </thead>
                     <tbody>
-                      {events.map(ev => (
+                      {doneEvents.map(ev => (
                         <tr key={ev.id}>
                           <td><CheckCircle2 size={14} color="var(--green)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(ev.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
                           <td>{ev.area || '—'}</td>
@@ -128,15 +120,15 @@ export default function SuiviTechnicien() {
 
             <div className="card" style={{ marginTop: 20 }}>
               <div className="card-header">
-                <span className="card-title">Anomalies signalées aujourd'hui ({anomalies.length})</span>
+                <span className="card-title">Anomalies signalées aujourd'hui ({anomalyEvents.length})</span>
               </div>
               <div className="table-wrapper">
-                {anomaliesError && <div className="empty-state"><div className="empty-state-sub">{anomaliesError}</div></div>}
-                {!anomaliesError && anomaliesLoading && <div className="loading-state">Chargement…</div>}
-                {!anomaliesError && !anomaliesLoading && anomalies.length === 0 && (
+                {eventsError && <div className="empty-state"><div className="empty-state-sub">{eventsError}</div></div>}
+                {!eventsError && eventsLoading && <div className="loading-state">Chargement…</div>}
+                {!eventsError && !eventsLoading && anomalyEvents.length === 0 && (
                   <div className="empty-state"><div className="empty-state-sub">Aucune anomalie signalée aujourd'hui pour {selected}.</div></div>
                 )}
-                {!anomaliesError && !anomaliesLoading && anomalies.length > 0 && (
+                {!eventsError && !eventsLoading && anomalyEvents.length > 0 && (
                   <table className="table">
                     <thead>
                       <tr>
@@ -149,13 +141,13 @@ export default function SuiviTechnicien() {
                       </tr>
                     </thead>
                     <tbody>
-                      {anomalies.map(an => (
+                      {anomalyEvents.map(an => (
                         <tr key={an.id}>
                           <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(an.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
                           <td>{an.area || '—'}</td>
                           <td>{an.subarea || '—'}</td>
                           <td>{an.barcode}</td>
-                          <td><span className="badge badge-orange">{an.type}</span></td>
+                          <td><span className="badge badge-orange">{an.anomaly_type}</span></td>
                           <td className="text-sm text-gray">{an.commentaire || '—'}</td>
                         </tr>
                       ))}

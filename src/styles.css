@@ -228,6 +228,11 @@ body {
 .col-resize-handle:hover, .col-resize-handle:active { background: var(--accent); opacity: 0.4; }
 .row-selected { background: #eef2ff; }
 .row-selected:hover { background: #e0e7ff !important; }
+.row-pending { background: #fffbeb; }
+.row-pending:hover { background: #fef3c7 !important; }
+
+.btn-validate { background: var(--accent); border-color: var(--accent); color: white; font-size: 12px; padding: 5px 10px; gap: 4px; }
+.btn-validate:hover { background: var(--accent-hover); }
 
 .bulk-toolbar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;

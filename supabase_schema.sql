@@ -7,9 +7,17 @@
 
 CREATE TABLE IF NOT EXISTS repair_assignments (
     barcode          TEXT PRIMARY KEY,   -- correspond à export_devices_report.barcode
+    -- Valeurs PUBLIÉES : ce que le technicien voit réellement. Ne changent
+    -- que lorsque l'admin clique "Valider les tâches" (voir draft_* ci-dessous).
     technicien       TEXT,               -- nom du technicien affecté (ex: "Wassime")
     action           TEXT,               -- ex: Pré-diagnostic, Diagnostic, Réparation, Validation
     commentaire      TEXT,               -- commentaire admin
+    -- Brouillon : ce que l'admin prépare dans Planification, invisible du
+    -- technicien tant que non validé.
+    draft_technicien TEXT,
+    draft_action     TEXT,
+    draft_commentaire TEXT,
+    validated_at     TIMESTAMPTZ,
     -- Suivi "depuis combien de temps sur cette zone avec ce statut" : l'app
     -- met à jour ces 3 colonnes elle-même dès qu'elle détecte un changement
     -- de zone ou de statut sur l'appareil (aucune donnée historique
@@ -33,6 +41,23 @@ ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS status_since TIMESTAMPTZ
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS tech_commentaire TEXT;
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS task_done BOOLEAN DEFAULT FALSE;
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS task_done_at TIMESTAMPTZ;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_technicien TEXT;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_action TEXT;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_commentaire TEXT;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS validated_at TIMESTAMPTZ;
+
+-- Si vous aviez déjà des affectations publiées avant l'introduction du
+-- brouillon, on les recopie une seule fois comme point de départ du
+-- brouillon (pour ne pas perdre l'affichage côté admin), et on marque ces
+-- lignes comme déjà validées (pour ne pas faire disparaître d'un coup les
+-- tâches déjà visibles par les techniciens).
+UPDATE repair_assignments
+SET draft_technicien = technicien,
+    draft_action = action,
+    draft_commentaire = commentaire,
+    validated_at = COALESCE(validated_at, updated_at, NOW())
+WHERE draft_technicien IS NULL AND draft_action IS NULL AND draft_commentaire IS NULL
+  AND (technicien IS NOT NULL OR action IS NOT NULL OR commentaire IS NOT NULL);
 
 -- RLS : aucun accès direct depuis le client. Cette table n'est lue/écrite
 -- que par la fonction serveur (clé service_role), jamais depuis le

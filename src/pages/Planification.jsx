@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
 import { useColumnWidths, ResizableTh } from '../ResizableTable'
-import { RefreshCw, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { RefreshCw, Search, CheckCircle2, AlertTriangle, Send } from 'lucide-react'
 
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
@@ -38,6 +38,7 @@ const COLUMNS = [
   { key: 'commentaire', label: 'Commentaire', width: 150 },
   { key: 'tech_commentaire', label: 'Comm. technicien', width: 150 },
   { key: 'anomalie', label: 'Anomalie / Tâche', width: 130 },
+  { key: 'validate', label: '', width: 90 },
   { key: 'saveflag', label: '', width: 24 },
 ]
 
@@ -51,11 +52,13 @@ function TacheStatusBadge({ device }) {
   return <span className="text-sm text-gray">—</span>
 }
 
-function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }) {
-  const [technicien, setTechnicien] = useState(device.technicien || '')
-  const [action, setAction] = useState(device.action || '')
-  const [commentaire, setCommentaire] = useState(device.commentaire || '')
+function EditableRow({ device, technicienNames, onSave, onValidate, checked, onToggleCheck }) {
+  // On édite le BROUILLON (draft_*), invisible du technicien tant que non validé.
+  const [technicien, setTechnicien] = useState(device.draft_technicien || '')
+  const [action, setAction] = useState(device.draft_action || '')
+  const [commentaire, setCommentaire] = useState(device.draft_commentaire || '')
   const [saving, setSaving] = useState(false)
+  const [validating, setValidating] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
 
   async function persist(fields) {
@@ -71,8 +74,19 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
     }
   }
 
+  async function handleValidate() {
+    setValidating(true)
+    try {
+      await onValidate([device.barcode])
+    } catch (e) {
+      alert('Échec de la validation : ' + e.message)
+    } finally {
+      setValidating(false)
+    }
+  }
+
   return (
-    <tr className={checked ? 'row-selected' : ''}>
+    <tr className={checked ? 'row-selected' : (device.pending_validation ? 'row-pending' : '')}>
       <td className="td-checkbox">
         <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
       </td>
@@ -87,7 +101,7 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
         <select
           className="form-input"
           value={technicien}
-          onChange={e => { setTechnicien(e.target.value); persist({ technicien: e.target.value, action, commentaire }) }}
+          onChange={e => { setTechnicien(e.target.value); persist({ draft_technicien: e.target.value, draft_action: action, draft_commentaire: commentaire }) }}
         >
           <option value="">—</option>
           {technicienNames.map(t => <option key={t} value={t}>{t}</option>)}
@@ -97,7 +111,7 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
         <select
           className="form-input"
           value={action}
-          onChange={e => { setAction(e.target.value); persist({ technicien, action: e.target.value, commentaire }) }}
+          onChange={e => { setAction(e.target.value); persist({ draft_technicien: technicien, draft_action: e.target.value, draft_commentaire: commentaire }) }}
         >
           <option value="">—</option>
           {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
@@ -109,12 +123,20 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
           style={{ minWidth: 130 }}
           value={commentaire}
           onChange={e => setCommentaire(e.target.value)}
-          onBlur={() => persist({ technicien, action, commentaire })}
+          onBlur={() => persist({ draft_technicien: technicien, draft_action: action, draft_commentaire: commentaire })}
           placeholder="Commentaire…"
         />
       </td>
       <td className="text-sm text-gray td-truncate">{device.tech_commentaire || '—'}</td>
       <td><TacheStatusBadge device={device} /></td>
+      <td>
+        {device.pending_validation && (
+          <button className="btn btn-validate" onClick={handleValidate} disabled={validating} title="Envoyer au technicien">
+            <Send size={12} />
+            {validating ? '…' : 'Valider'}
+          </button>
+        )}
+      </td>
       <td style={{ width: 20 }}>
         {saving && <RefreshCw size={12} className="spin text-gray" />}
         {!saving && savedFlash && <span style={{ color: 'var(--green)' }}>✓</span>}
@@ -124,8 +146,8 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
 }
 
 export default function Planification() {
-  const { devices, technicians, loading, error, reload, saveAssignment } = usePlanningData()
-  const { widths, startDrag } = useColumnWidths('doneo_planif_cols', COLUMNS)
+  const { devices, technicians, loading, error, reload, saveAssignment, validateBarcodes } = usePlanningData()
+  const { widths, startDrag } = useColumnWidths('doneo_planif_cols_v2', COLUMNS)
 
   const [search, setSearch] = useState('')
   const [ligneFilter, setLigneFilter] = useState('')
@@ -136,6 +158,7 @@ export default function Planification() {
   const [bulkTechnicien, setBulkTechnicien] = useState('')
   const [bulkAction, setBulkAction] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkValidating, setBulkValidating] = useState(false)
 
   const lignes = useMemo(
     () => [...new Set(devices.map(d => d.area).filter(Boolean))].sort(),
@@ -175,6 +198,7 @@ export default function Planification() {
   const assigned = devices.filter(d => d.technicien).length
   const enZoneBancs = devices.filter(d => zoneTypeOf(d.area) === 'Zone bancs').length
   const distinctTechniciensAssignes = new Set(devices.map(d => d.technicien).filter(Boolean)).size
+  const pendingCount = devices.filter(d => d.pending_validation).length
 
   function toggleCheck(barcode) {
     setSelected(prev => {
@@ -192,19 +216,31 @@ export default function Planification() {
     setBulkSaving(true)
     try {
       const fields = {}
-      if (bulkTechnicien) fields.technicien = bulkTechnicien
-      if (bulkAction) fields.action = bulkAction
+      if (bulkTechnicien) fields.draft_technicien = bulkTechnicien
+      if (bulkAction) fields.draft_action = bulkAction
       if (Object.keys(fields).length === 0) { alert('Choisissez un technicien et/ou une action à appliquer.'); return }
       for (const barcode of selected) {
         await saveAssignment(barcode, fields)
       }
-      setSelected(new Set())
       setBulkTechnicien('')
       setBulkAction('')
     } catch (e) {
       alert("Échec de l'affectation groupée : " + e.message)
     } finally {
       setBulkSaving(false)
+    }
+  }
+
+  async function validateSelection() {
+    if (selected.size === 0) return
+    setBulkValidating(true)
+    try {
+      await validateBarcodes([...selected])
+      setSelected(new Set())
+    } catch (e) {
+      alert('Échec de la validation : ' + e.message)
+    } finally {
+      setBulkValidating(false)
     }
   }
 
@@ -236,6 +272,10 @@ export default function Planification() {
           <div className="stat-card stat-card-compact">
             <div className="stat-label">Techniciens</div>
             <div className="stat-value">{distinctTechniciensAssignes}</div>
+          </div>
+          <div className="stat-card stat-card-compact">
+            <div className="stat-label">À valider</div>
+            <div className="stat-value" style={{ color: pendingCount > 0 ? 'var(--orange)' : undefined }}>{pendingCount}</div>
           </div>
         </div>
 
@@ -290,6 +330,10 @@ export default function Planification() {
               <button className="btn btn-primary" onClick={applyBulk} disabled={bulkSaving}>
                 {bulkSaving ? 'Application…' : 'Appliquer'}
               </button>
+              <button className="btn btn-validate" onClick={validateSelection} disabled={bulkValidating}>
+                <Send size={13} />
+                {bulkValidating ? 'Envoi…' : 'Valider les tâches'}
+              </button>
               <button className="btn" onClick={() => setSelected(new Set())}>Annuler la sélection</button>
             </div>
           )}
@@ -326,6 +370,7 @@ export default function Planification() {
                     <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>Comm. technicien</ResizableTh>
                     <ResizableTh index={12} width={widths[12]} onStartDrag={startDrag}>Anomalie / Tâche</ResizableTh>
                     <th style={{ width: widths[13] }}></th>
+                    <th style={{ width: widths[14] }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,6 +380,7 @@ export default function Planification() {
                       device={d}
                       technicienNames={technicienNames}
                       onSave={saveAssignment}
+                      onValidate={validateBarcodes}
                       checked={selected.has(d.barcode)}
                       onToggleCheck={toggleCheck}
                     />

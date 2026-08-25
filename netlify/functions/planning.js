@@ -146,9 +146,19 @@ export async function handler(event) {
           service_sub_category_name: d.service_sub_category_name,
           merged_micro_failures: d.merged_micro_failures,
           merged_macro_failures: d.merged_macro_failures,
+          // Valeurs publiées (visibles par le technicien)
           technicien: a?.technicien || null,
           action: a?.action || null,
           commentaire: a?.commentaire || null,
+          // Brouillon admin (invisible du technicien tant que non validé)
+          draft_technicien: a?.draft_technicien ?? a?.technicien ?? null,
+          draft_action: a?.draft_action ?? a?.action ?? null,
+          draft_commentaire: a?.draft_commentaire ?? a?.commentaire ?? null,
+          pending_validation: !!(a && (
+            (a.draft_technicien || null) !== (a.technicien || null) ||
+            (a.draft_action || null) !== (a.action || null) ||
+            (a.draft_commentaire || null) !== (a.commentaire || null)
+          )),
           tech_commentaire: a?.tech_commentaire || null,
           task_done: a?.task_done || false,
           task_done_at: a?.task_done_at || null,

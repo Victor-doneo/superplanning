@@ -1,11 +1,12 @@
 // Fonction serveur : écrit dans repair_assignments (la seule table où l'app
 // peut écrire), après vérification du jeton de session et du rôle.
 //
-// - admin : contrôle total (technicien / action / commentaire / son propre
-//   commentaire technicien / tâche réalisée — un admin peut aussi être
-//   affecté à des tâches).
+// - admin : édite le BROUILLON (draft_technicien/draft_action/draft_commentaire),
+//   invisible du technicien tant que non "validé" (voir validate.js). Peut
+//   aussi renseigner son propre tech_commentaire/task_done si une tâche
+//   publiée lui est affectée.
 // - technicien : uniquement tech_commentaire / task_done sur un appareil
-//   qui lui est déjà affecté (vérifié côté serveur).
+//   qui lui est déjà affecté (vérifié côté serveur, sur les valeurs publiées).
 //
 // Chaque passage de task_done à true est journalisé dans repair_app_events
 // (historique, indépendant de repair_assignments).
@@ -51,11 +52,11 @@ export async function handler(event) {
 
   try {
     if (role === 'admin') {
-      const { technicien, action, commentaire, tech_commentaire, task_done } = payload
+      const { draft_technicien, draft_action, draft_commentaire, tech_commentaire, task_done } = payload
       const update = { barcode: bc, updated_at: new Date().toISOString() }
-      if (technicien !== undefined) update.technicien = technicien || null
-      if (action !== undefined) update.action = action || null
-      if (commentaire !== undefined) update.commentaire = commentaire || null
+      if (draft_technicien !== undefined) update.draft_technicien = draft_technicien || null
+      if (draft_action !== undefined) update.draft_action = draft_action || null
+      if (draft_commentaire !== undefined) update.draft_commentaire = draft_commentaire || null
       if (tech_commentaire !== undefined) update.tech_commentaire = tech_commentaire || null
       if (task_done !== undefined) {
         update.task_done = !!task_done
@@ -66,14 +67,18 @@ export async function handler(event) {
       if (error) throw error
 
       if (task_done === true) {
-        await logTaskDone(admin, bc, technicien ?? technicienName, action)
+        // Un admin qui marque sa propre tâche réalisée : on journalise avec
+        // les valeurs publiées actuelles (technicien = lui-même déjà).
+        const { data: rows } = await admin.from('repair_assignments').select('technicien, action').eq('barcode', bc).limit(1)
+        const current = rows?.[0]
+        await logTaskDone(admin, bc, current?.technicien ?? technicienName, current?.action)
       }
 
       return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ok: true }) }
     }
 
-    // Rôle technicien : uniquement sur ses propres appareils, uniquement
-    // tech_commentaire / task_done.
+    // Rôle technicien : uniquement sur ses propres appareils (valeurs
+    // publiées), uniquement tech_commentaire / task_done.
     if (!technicienName) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Compte technicien non configuré.' }) }
     }

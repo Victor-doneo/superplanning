@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { authedFetch } from '../auth'
-import DateRangePicker, { todayISODate } from '../DateRangePicker'
+import DateRangePicker, { defaultRange } from '../DateRangePicker'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 export default function Anomalies() {
@@ -9,7 +9,7 @@ export default function Anomalies() {
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('')
   const [technicienFilter, setTechnicienFilter] = useState('')
-  const [range, setRange] = useState({ from: todayISODate(), to: todayISODate() })
+  const [range, setRange] = useState(defaultRange())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -39,7 +39,7 @@ export default function Anomalies() {
     <>
       <div className="page-header">
         <h2 className="page-title">Anomalies</h2>
-        <p className="page-subtitle">Anomalies remontées par les techniciens</p>
+        <p className="page-subtitle">Anomalies remontées, tous techniciens confondus</p>
       </div>
 
       <div className="page-body">
@@ -81,7 +81,7 @@ export default function Anomalies() {
                     <th>Code-barres</th>
                     <th>Type</th>
                     <th>Détail</th>
-                    <th>Commentaire admin</th>
+                    <th>Commentaire (planification)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -90,7 +90,7 @@ export default function Anomalies() {
                       <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(a.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="font-bold">{a.technicien || '—'}</td>
                       <td>{a.area || '—'}</td>
-                      <td>{a.subarea && a.subarea !== a.area ? a.subarea : '—'}</td>
+                      <td>{a.subarea || '—'}</td>
                       <td>{a.barcode}</td>
                       <td><span className="badge badge-orange">{a.anomaly_type}</span></td>
                       <td className="text-sm text-gray">{a.commentaire || '—'}</td>

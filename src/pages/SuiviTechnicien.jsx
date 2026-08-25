@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { authedFetch } from '../auth'
 import TaskCard from '../TaskCard'
-import DateRangePicker, { todayISODate } from '../DateRangePicker'
+import DateRangePicker, { defaultRange } from '../DateRangePicker'
 import { RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export default function SuiviTechnicien() {
   const { devices, technicians, loading, error, reload } = usePlanningData()
   const [selected, setSelected] = useState('')
-  const [range, setRange] = useState({ from: todayISODate(), to: todayISODate() })
+  const [range, setRange] = useState(defaultRange())
 
   const technicienNames = useMemo(
     () => [...new Set(technicians.map(t => t.name).filter(Boolean))].sort(),
@@ -102,7 +102,7 @@ export default function SuiviTechnicien() {
                         <th>Code-barres</th>
                         <th>Marque / Type</th>
                         <th>Action</th>
-                        <th>Commentaire admin</th>
+                        <th>Commentaire (planification)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -110,7 +110,7 @@ export default function SuiviTechnicien() {
                         <tr key={ev.id}>
                           <td><CheckCircle2 size={14} color="var(--green)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(ev.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                           <td>{ev.area || '—'}</td>
-                          <td>{ev.subarea && ev.subarea !== ev.area ? ev.subarea : '—'}</td>
+                          <td>{ev.subarea || '—'}</td>
                           <td>{ev.barcode}</td>
                           <td>{ev.brand_name} {ev.service_sub_category_name}</td>
                           <td>{ev.action || '—'}</td>
@@ -143,7 +143,7 @@ export default function SuiviTechnicien() {
                         <th>Code-barres</th>
                         <th>Type</th>
                         <th>Détail</th>
-                        <th>Commentaire admin</th>
+                        <th>Commentaire (planification)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -151,7 +151,7 @@ export default function SuiviTechnicien() {
                         <tr key={an.id}>
                           <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(an.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                           <td>{an.area || '—'}</td>
-                          <td>{an.subarea && an.subarea !== an.area ? an.subarea : '—'}</td>
+                          <td>{an.subarea || '—'}</td>
                           <td>{an.barcode}</td>
                           <td><span className="badge badge-orange">{an.anomaly_type}</span></td>
                           <td className="text-sm text-gray">{an.commentaire || '—'}</td>

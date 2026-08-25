@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS repair_app_events (
     technicien                  TEXT,
     action                      TEXT,           -- rempli pour event_type = 'task_done'
     anomaly_type                TEXT,           -- rempli pour event_type = 'anomaly' (une des 6 catégories)
-    commentaire                 TEXT,           -- détail libre pour une anomalie
+    commentaire                 TEXT,           -- détail libre saisi par le technicien pour une anomalie
+    assignment_commentaire      TEXT,           -- copie du commentaire admin (repair_assignments.commentaire) au moment de l'événement
     area                        TEXT,
     subarea                     TEXT,
     brand_name                  TEXT,
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS repair_app_events (
     created_at                  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE repair_app_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repair_app_events ADD COLUMN IF NOT EXISTS assignment_commentaire TEXT;
 CREATE INDEX IF NOT EXISTS idx_events_type ON repair_app_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_technicien ON repair_app_events(technicien);
 CREATE INDEX IF NOT EXISTS idx_events_created_at ON repair_app_events(created_at);

@@ -217,6 +217,7 @@ body {
 .table-compact .form-input { padding: 4px 8px; font-size: 12.5px; }
 
 .td-checkbox { width: 32px; text-align: center; }
+.col-narrow { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-selected { background: #eef2ff; }
 .row-selected:hover { background: #e0e7ff !important; }
 
@@ -230,6 +231,8 @@ body {
 .since-late { color: var(--red); font-weight: 700; }
 
 .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+
+.date-range-picker input[type="date"] { padding: 6px 10px; }
 
 @media (max-width: 768px) {
   .mobile-topbar { display: flex; }

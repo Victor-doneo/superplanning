@@ -10,14 +10,27 @@ export async function fetchDeviceInfo(admin, barcode) {
   return rows?.[0] || null
 }
 
+export async function fetchAssignmentComment(admin, barcode) {
+  const { data: rows } = await admin
+    .from('repair_assignments')
+    .select('commentaire')
+    .eq('barcode', barcode)
+    .limit(1)
+  return rows?.[0]?.commentaire || null
+}
+
 export async function logTaskDone(admin, barcode, technicien, action) {
   try {
-    const device = await fetchDeviceInfo(admin, barcode)
+    const [device, assignmentComment] = await Promise.all([
+      fetchDeviceInfo(admin, barcode),
+      fetchAssignmentComment(admin, barcode),
+    ])
     await admin.from('repair_app_events').insert({
       event_type: 'task_done',
       barcode,
       technicien: technicien || null,
       action: action || null,
+      assignment_commentaire: assignmentComment,
       area: device?.area || null,
       subarea: device?.subarea || null,
       brand_name: device?.brand_name || null,
@@ -29,13 +42,17 @@ export async function logTaskDone(admin, barcode, technicien, action) {
 }
 
 export async function logAnomaly(admin, { barcode, technicien, type, commentaire }) {
-  const device = await fetchDeviceInfo(admin, barcode)
+  const [device, assignmentComment] = await Promise.all([
+    fetchDeviceInfo(admin, barcode),
+    fetchAssignmentComment(admin, barcode),
+  ])
   const { error } = await admin.from('repair_app_events').insert({
     event_type: 'anomaly',
     barcode,
     technicien: technicien || null,
     anomaly_type: type,
     commentaire: commentaire || null,
+    assignment_commentaire: assignmentComment,
     area: device?.area || null,
     subarea: device?.subarea || null,
     brand_name: device?.brand_name || null,

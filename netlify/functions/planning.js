@@ -45,19 +45,37 @@ export async function handler(event) {
   const admin = createClient(supabaseUrl, serviceKey)
 
   try {
-    const [devicesRes, assignmentsRes, techsRes] = await Promise.all([
+    const startOfDay = new Date()
+    startOfDay.setUTCHours(0, 0, 0, 0)
+
+    const [devicesRes, assignmentsRes, techsRes, anomaliesRes] = await Promise.all([
       admin.from('export_devices_report').select('*'),
       admin.from('repair_assignments').select('*'),
       admin.from('users').select('id, name, roles, deleted').contains('roles', ['Réparation']),
+      admin
+        .from('repair_app_events')
+        .select('barcode, anomaly_type, created_at')
+        .eq('event_type', 'anomaly')
+        .gte('created_at', startOfDay.toISOString())
+        .order('created_at', { ascending: false }),
     ])
 
     if (devicesRes.error) throw devicesRes.error
     if (assignmentsRes.error) throw assignmentsRes.error
     if (techsRes.error) throw techsRes.error
+    if (anomaliesRes.error) throw anomaliesRes.error
 
     const assignmentsByBarcode = new Map(
       assignmentsRes.data.map(a => [normalizeBarcode(a.barcode), a])
     )
+
+    // Anomalie la plus récente du jour, par appareil (la liste est déjà
+    // triée du plus récent au plus ancien, donc le premier match gagne).
+    const lastAnomalyByBarcode = new Map()
+    for (const an of anomaliesRes.data || []) {
+      const key = normalizeBarcode(an.barcode)
+      if (!lastAnomalyByBarcode.has(key)) lastAnomalyByBarcode.set(key, an.anomaly_type)
+    }
 
     const now = new Date().toISOString()
     const trackingUpdates = []
@@ -97,6 +115,7 @@ export async function handler(event) {
           task_done: a?.task_done || false,
           task_done_at: a?.task_done_at || null,
           status_since: statusSince,
+          last_anomaly: lastAnomalyByBarcode.get(normalizeBarcode(d.barcode)) || null,
         }
       })
       .filter(d => {

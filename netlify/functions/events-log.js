@@ -1,11 +1,12 @@
 // Fonction serveur (admin uniquement) : consulte le journal repair_app_events
 // (tâches réalisées et/ou anomalies), filtrable par type, technicien et
-// date (par défaut : aujourd'hui).
+// intervalle de dates.
 //
 // Paramètres :
-//   type       'task_done' | 'anomaly' | (absent = les deux)
-//   technicien nom exact (optionnel)
-//   all        'true' pour ne pas filtrer sur aujourd'hui uniquement
+//   type        'task_done' | 'anomaly' | (absent = les deux)
+//   technicien  nom exact (optionnel)
+//   from        date début 'YYYY-MM-DD' (défaut : aujourd'hui)
+//   to          date fin 'YYYY-MM-DD' incluse (défaut : aujourd'hui)
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -15,6 +16,10 @@ import { requireAdmin } from './_shared/auth.js'
 
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+function todayISODate() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 export async function handler(event) {
   if (event.httpMethod !== 'GET') {
@@ -31,18 +36,23 @@ export async function handler(event) {
   const params = event.queryStringParameters || {}
   const type = params.type || null
   const technicien = params.technicien || null
-  const todayOnly = params.all !== 'true'
+  const from = params.from || todayISODate()
+  const to = params.to || todayISODate()
+
+  const startIso = `${from}T00:00:00.000Z`
+  const endExclusive = new Date(`${to}T00:00:00.000Z`)
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
 
   try {
-    let query = admin.from('repair_app_events').select('*').order('created_at', { ascending: false })
+    let query = admin
+      .from('repair_app_events')
+      .select('*')
+      .gte('created_at', startIso)
+      .lt('created_at', endExclusive.toISOString())
+      .order('created_at', { ascending: false })
 
     if (type) query = query.eq('event_type', type)
     if (technicien) query = query.eq('technicien', technicien)
-    if (todayOnly) {
-      const startOfDay = new Date()
-      startOfDay.setUTCHours(0, 0, 0, 0)
-      query = query.gte('created_at', startOfDay.toISOString())
-    }
 
     const { data, error } = await query
     if (error) throw error

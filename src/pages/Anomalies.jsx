@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { authedFetch } from '../auth'
+import DateRangePicker, { todayISODate } from '../DateRangePicker'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 export default function Anomalies() {
@@ -8,19 +9,20 @@ export default function Anomalies() {
   const [error, setError] = useState(null)
   const [typeFilter, setTypeFilter] = useState('')
   const [technicienFilter, setTechnicienFilter] = useState('')
+  const [range, setRange] = useState({ from: todayISODate(), to: todayISODate() })
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const body = await authedFetch('/.netlify/functions/events-log?type=anomaly')
+      const body = await authedFetch(`/.netlify/functions/events-log?type=anomaly&from=${range.from}&to=${range.to}`)
       setAnomalies(body.events || [])
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [range])
 
   useEffect(() => { load() }, [load])
 
@@ -37,14 +39,15 @@ export default function Anomalies() {
     <>
       <div className="page-header">
         <h2 className="page-title">Anomalies</h2>
-        <p className="page-subtitle">Anomalies remontées aujourd'hui, tous techniciens confondus</p>
+        <p className="page-subtitle">Anomalies remontées par les techniciens</p>
       </div>
 
       <div className="page-body">
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Aujourd'hui ({filtered.length})</span>
-            <div className="flex gap-2 items-center">
+            <span className="card-title">{filtered.length} anomalie{filtered.length > 1 ? 's' : ''}</span>
+            <div className="flex gap-2 items-center" style={{ flexWrap: 'wrap' }}>
+              <DateRangePicker from={range.from} to={range.to} onChange={setRange} />
               <select className="form-input" value={technicienFilter} onChange={e => setTechnicienFilter(e.target.value)}>
                 <option value="">Tous les techniciens</option>
                 {techniciens.map(t => <option key={t} value={t}>{t}</option>)}
@@ -63,7 +66,7 @@ export default function Anomalies() {
             {!error && loading && <div className="loading-state">Chargement…</div>}
             {!error && !loading && filtered.length === 0 && (
               <div className="empty-state">
-                <div className="empty-state-title">Aucune anomalie aujourd'hui</div>
+                <div className="empty-state-title">Aucune anomalie sur cette période</div>
                 <div className="empty-state-sub">Les anomalies signalées par les techniciens apparaîtront ici.</div>
               </div>
             )}
@@ -71,25 +74,27 @@ export default function Anomalies() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Heure</th>
+                    <th>Date</th>
                     <th>Technicien</th>
                     <th>Ligne</th>
                     <th>Banc</th>
                     <th>Code-barres</th>
                     <th>Type</th>
                     <th>Détail</th>
+                    <th>Commentaire admin</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(a => (
                     <tr key={a.id}>
-                      <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(a.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(a.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="font-bold">{a.technicien || '—'}</td>
                       <td>{a.area || '—'}</td>
-                      <td>{a.subarea || '—'}</td>
+                      <td>{a.subarea && a.subarea !== a.area ? a.subarea : '—'}</td>
                       <td>{a.barcode}</td>
                       <td><span className="badge badge-orange">{a.anomaly_type}</span></td>
                       <td className="text-sm text-gray">{a.commentaire || '—'}</td>
+                      <td className="text-sm text-gray">{a.assignment_commentaire || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

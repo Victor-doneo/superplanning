@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
-import { RefreshCw, Search } from 'lucide-react'
+import { RefreshCw, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
@@ -12,6 +12,25 @@ function zoneTypeOf(area) {
   if (area === 'Zone qualité') return 'Zone qualité'
   if (area.startsWith('Ligne')) return 'Zone bancs'
   return 'Autres zones'
+}
+
+// Évite d'afficher deux fois la même info : dans les zones sans vrais
+// "bancs" (Zone qualité, Zone attente validation...), subarea vaut souvent
+// la même chose que area — dans ce cas on n'affiche rien en Banc.
+function subareaDisplay(device) {
+  if (!device.subarea) return '—'
+  if (device.subarea === device.area) return '—'
+  return device.subarea
+}
+
+function TacheStatusBadge({ device }) {
+  if (device.task_done) {
+    return <span className="badge badge-green"><CheckCircle2 size={11} style={{ verticalAlign: -1, marginRight: 3 }} />Réalisée</span>
+  }
+  if (device.last_anomaly) {
+    return <span className="badge badge-orange"><AlertTriangle size={11} style={{ verticalAlign: -1, marginRight: 3 }} />{device.last_anomaly}</span>
+  }
+  return <span className="text-sm text-gray">—</span>
 }
 
 function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }) {
@@ -39,8 +58,8 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
       <td className="td-checkbox">
         <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
       </td>
-      <td className="font-bold">{device.area || '—'}</td>
-      <td>{device.subarea || '—'}</td>
+      <td className="font-bold col-narrow">{device.area || '—'}</td>
+      <td className="col-narrow">{subareaDisplay(device)}</td>
       <td>{device.barcode}</td>
       <td>{device.service_sub_category_name || '—'}</td>
       <td>{device.brand_name || '—'}</td>
@@ -69,13 +88,15 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
       <td>
         <input
           className="form-input"
-          style={{ minWidth: 140 }}
+          style={{ minWidth: 130 }}
           value={commentaire}
           onChange={e => setCommentaire(e.target.value)}
           onBlur={() => persist({ technicien, action, commentaire })}
           placeholder="Commentaire…"
         />
       </td>
+      <td className="text-sm text-gray" style={{ minWidth: 140 }}>{device.tech_commentaire || '—'}</td>
+      <td><TacheStatusBadge device={device} /></td>
       <td style={{ width: 20 }}>
         {saving && <RefreshCw size={12} className="spin text-gray" />}
         {!saving && savedFlash && <span style={{ color: 'var(--green)' }}>✓</span>}
@@ -279,6 +300,8 @@ export default function Planification() {
                     <th>Technicien</th>
                     <th>Action</th>
                     <th>Commentaire</th>
+                    <th>Comm. technicien</th>
+                    <th>Anomalie / Tâche</th>
                     <th></th>
                   </tr>
                 </thead>

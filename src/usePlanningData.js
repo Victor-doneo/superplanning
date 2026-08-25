@@ -59,6 +59,10 @@ export function usePlanningData() {
         tech_commentaire: actionOrCommentChanged ? null : d.tech_commentaire,
         task_done: actionOrCommentChanged ? false : d.task_done,
         task_done_at: actionOrCommentChanged ? null : d.task_done_at,
+        // La validation "efface" les anomalies passées de l'affichage (elles
+        // concernaient la tâche précédente) — le serveur applique la même
+        // règle au prochain chargement, via validated_at.
+        last_anomaly: null,
       })
     }))
     return body

@@ -120,12 +120,15 @@ export async function handler(event) {
       assignmentsRes.data.map(a => [normalizeBarcode(a.barcode), a])
     )
 
-    // Anomalie la plus récente du jour, par appareil (la liste est déjà
-    // triée du plus récent au plus ancien, donc le premier match gagne).
-    const lastAnomalyByBarcode = new Map()
+    // Anomalie la plus récente du jour, par appareil, en ne gardant que
+    // celles signalées APRÈS la dernière validation (une anomalie signalée
+    // avant concernait l'ancienne tâche, pas celle actuellement publiée).
+    const lastAnomalyDateByBarcode = new Map()
     for (const an of anomaliesRes.data || []) {
       const key = normalizeBarcode(an.barcode)
-      if (!lastAnomalyByBarcode.has(key)) lastAnomalyByBarcode.set(key, an.anomaly_type)
+      if (!lastAnomalyDateByBarcode.has(key)) {
+        lastAnomalyDateByBarcode.set(key, { type: an.anomaly_type, created_at: an.created_at })
+      }
     }
 
     const devices = repairRows
@@ -163,7 +166,14 @@ export async function handler(event) {
           task_done: a?.task_done || false,
           task_done_at: a?.task_done_at || null,
           status_since: statusSince,
-          last_anomaly: lastAnomalyByBarcode.get(normalizeBarcode(d.barcode)) || null,
+          last_anomaly: (() => {
+            const found = lastAnomalyDateByBarcode.get(normalizeBarcode(d.barcode))
+            if (!found) return null
+            // Ignorer une anomalie signalée avant la dernière validation :
+            // elle concerne la tâche précédente, pas celle publiée actuellement.
+            if (a?.validated_at && new Date(found.created_at) <= new Date(a.validated_at)) return null
+            return found.type
+          })(),
         }
       })
       .filter(d => {

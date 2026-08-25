@@ -57,6 +57,8 @@ export function usePlanningData() {
         action: d.draft_action,
         commentaire: d.draft_commentaire,
         tech_commentaire: actionOrCommentChanged ? null : d.tech_commentaire,
+        task_done: actionOrCommentChanged ? false : d.task_done,
+        task_done_at: actionOrCommentChanged ? null : d.task_done_at,
       })
     }))
     return body

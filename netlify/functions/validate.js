@@ -2,9 +2,10 @@
 // brouillon (draft_technicien/draft_action/draft_commentaire) vers les
 // valeurs réellement visibles par le technicien (technicien/action/commentaire).
 //
-// Le commentaire technicien (tech_commentaire) est remis à zéro SI ET
-// SEULEMENT SI l'action ou le commentaire admin change par rapport à la
-// dernière version publiée (sinon on le laisse tel quel).
+// Le commentaire technicien (tech_commentaire) ET le statut "tâche
+// réalisée" (task_done) sont remis à zéro SI ET SEULEMENT SI l'action ou le
+// commentaire admin change par rapport à la dernière version publiée
+// (sinon on les laisse tels quels).
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -72,6 +73,8 @@ export async function handler(event) {
       }
       if (actionOrCommentChanged) {
         update.tech_commentaire = null
+        update.task_done = false
+        update.task_done_at = null
       }
       updates.push(update)
     }

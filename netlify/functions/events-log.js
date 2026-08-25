@@ -1,12 +1,15 @@
 // Fonction serveur (admin uniquement) : consulte le journal repair_app_events
-// (tâches réalisées et/ou anomalies), filtrable par type, technicien et
-// plage de dates (par défaut : aujourd'hui uniquement).
+// (tâches réalisées et/ou anomalies), filtrable par type, technicien,
+// code-barres et plage de dates (par défaut : aujourd'hui uniquement — sauf
+// si un code-barres précis est demandé, auquel cas tout l'historique de cet
+// appareil est renvoyé par défaut).
 //
 // Paramètres :
 //   type       'task_done' | 'anomaly' | (absent = les deux)
 //   technicien nom exact (optionnel)
-//   from       date de début, format YYYY-MM-DD (défaut : aujourd'hui)
-//   to         date de fin, format YYYY-MM-DD (défaut : aujourd'hui)
+//   barcode    code-barres exact (optionnel) — historique complet de l'appareil
+//   from       date de début, format YYYY-MM-DD
+//   to         date de fin, format YYYY-MM-DD
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -36,23 +39,29 @@ export async function handler(event) {
   const params = event.queryStringParameters || {}
   const type = params.type || null
   const technicien = params.technicien || null
+  const barcode = params.barcode || null
+  // Par défaut : aujourd'hui, SAUF si on demande l'historique d'un appareil
+  // précis (barcode) sans avoir explicitement fourni de plage — dans ce cas
+  // on ne restreint pas la période.
+  const hasExplicitRange = !!(params.from || params.to)
+  const applyDateRange = !barcode || hasExplicitRange
   const from = params.from || todayISO()
   const to = params.to || todayISO()
-
-  // Bornes en UTC, sur la journée complète du "to"
-  const fromDate = new Date(`${from}T00:00:00.000Z`)
-  const toDate = new Date(`${to}T23:59:59.999Z`)
 
   try {
     let query = admin
       .from('repair_app_events')
       .select('*')
-      .gte('created_at', fromDate.toISOString())
-      .lte('created_at', toDate.toISOString())
       .order('created_at', { ascending: false })
 
+    if (applyDateRange) {
+      const fromDate = new Date(`${from}T00:00:00.000Z`)
+      const toDate = new Date(`${to}T23:59:59.999Z`)
+      query = query.gte('created_at', fromDate.toISOString()).lte('created_at', toDate.toISOString())
+    }
     if (type) query = query.eq('event_type', type)
     if (technicien) query = query.eq('technicien', technicien)
+    if (barcode) query = query.eq('barcode', String(barcode))
 
     const { data, error } = await query
     if (error) throw error

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
 import { useColumnWidths, ResizableTh } from '../ResizableTable'
+import DeviceModal from '../DeviceModal'
 import { RefreshCw, Search, CheckCircle2, AlertTriangle, Send } from 'lucide-react'
 
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
@@ -73,11 +74,10 @@ function TacheStatusBadge({ device }) {
   return <span className="text-sm text-gray">—</span>
 }
 
-function EditableRow({ device, technicienNames, onSave, onValidate, checked, onToggleCheck }) {
+function EditableRow({ device, technicienNames, onSave, onValidate, checked, onToggleCheck, onOpenSummary }) {
   // On édite le BROUILLON (draft_*), invisible du technicien tant que non validé.
   const [technicien, setTechnicien] = useState(device.draft_technicien || '')
   const [action, setAction] = useState(device.draft_action || '')
-  const [commentaire, setCommentaire] = useState(device.draft_commentaire || '')
   const [saving, setSaving] = useState(false)
   const [validating, setValidating] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
@@ -111,18 +111,18 @@ function EditableRow({ device, technicienNames, onSave, onValidate, checked, onT
       <td className="td-checkbox">
         <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
       </td>
-      <td className="font-bold td-truncate">{device.area || '—'}</td>
-      <td className="td-truncate">{subareaDisplay(device)}</td>
-      <td className="td-truncate">{device.barcode}</td>
-      <td className="td-truncate">{device.service_sub_category_name || '—'}</td>
-      <td className="td-truncate">{device.brand_name || '—'}</td>
-      <td><StatusBadge statut={device.status} /></td>
-      <td className={`text-sm ${sinceClass(device.status_since)}`}>{formatSince(device.status_since)}</td>
+      <td className="font-bold td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.area || '—'}</td>
+      <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{subareaDisplay(device)}</td>
+      <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.barcode}</td>
+      <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.service_sub_category_name || '—'}</td>
+      <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.brand_name || '—'}</td>
+      <td className="clickable-row" onClick={() => onOpenSummary(device)}><StatusBadge statut={device.status} /></td>
+      <td className={`text-sm clickable-row ${sinceClass(device.status_since)}`} onClick={() => onOpenSummary(device)}>{formatSince(device.status_since)}</td>
       <td>
         <select
           className="form-input"
           value={technicien}
-          onChange={e => { setTechnicien(e.target.value); persist({ draft_technicien: e.target.value, draft_action: action, draft_commentaire: commentaire }) }}
+          onChange={e => { setTechnicien(e.target.value); persist({ draft_technicien: e.target.value, draft_action: action }) }}
         >
           <option value="">—</option>
           {technicienNames.map(t => <option key={t} value={t}>{t}</option>)}
@@ -132,24 +132,17 @@ function EditableRow({ device, technicienNames, onSave, onValidate, checked, onT
         <select
           className="form-input"
           value={action}
-          onChange={e => { setAction(e.target.value); persist({ draft_technicien: technicien, draft_action: e.target.value, draft_commentaire: commentaire }) }}
+          onChange={e => { setAction(e.target.value); persist({ draft_technicien: technicien, draft_action: e.target.value }) }}
         >
           <option value="">—</option>
           {ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </td>
-      <td>
-        <input
-          className="form-input"
-          style={{ minWidth: 130 }}
-          value={commentaire}
-          onChange={e => setCommentaire(e.target.value)}
-          onBlur={() => persist({ draft_technicien: technicien, draft_action: action, draft_commentaire: commentaire })}
-          placeholder="Commentaire…"
-        />
+      <td className="td-truncate clickable-row comment-preview" onClick={() => onOpenSummary(device, true)}>
+        {device.draft_commentaire || <span className="text-gray">Ajouter un commentaire…</span>}
       </td>
-      <td className="text-sm text-gray td-truncate">{device.tech_commentaire || '—'}</td>
-      <td><TacheStatusBadge device={device} /></td>
+      <td className="text-sm text-gray td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.tech_commentaire || '—'}</td>
+      <td className="clickable-row" onClick={() => onOpenSummary(device)}><TacheStatusBadge device={device} /></td>
       <td>
         {device.pending_validation && (
           <button className="btn btn-validate" onClick={handleValidate} disabled={validating} title="Envoyer au technicien">
@@ -181,6 +174,14 @@ export default function Planification() {
   const [bulkAction, setBulkAction] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkValidating, setBulkValidating] = useState(false)
+  const [summaryDevice, setSummaryDevice] = useState(null)
+  const [summaryFocusComment, setSummaryFocusComment] = useState(false)
+
+  function openSummary(device, focusComment = false) {
+    setSummaryDevice(device)
+    setSummaryFocusComment(focusComment)
+  }
+  const liveSummaryDevice = summaryDevice ? (devices.find(d => d.barcode === summaryDevice.barcode) || summaryDevice) : null
 
   const lignes = useMemo(
     () => [...new Set(devices.map(d => d.area).filter(Boolean))].sort(),
@@ -448,6 +449,7 @@ export default function Planification() {
                       onValidate={validateBarcodes}
                       checked={selected.has(d.barcode)}
                       onToggleCheck={toggleCheck}
+                      onOpenSummary={openSummary}
                     />
                   ))}
                 </tbody>
@@ -456,6 +458,17 @@ export default function Planification() {
           </div>
         </div>
       </div>
+
+      {liveSummaryDevice && (
+        <DeviceModal
+          device={liveSummaryDevice}
+          technicienNames={technicienNames}
+          onClose={() => setSummaryDevice(null)}
+          onSave={saveAssignment}
+          onValidate={validateBarcodes}
+          focusComment={summaryFocusComment}
+        />
+      )}
     </>
   )
 }

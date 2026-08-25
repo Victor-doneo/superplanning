@@ -174,6 +174,7 @@ export default function Planification() {
 
   const assigned = devices.filter(d => d.technicien).length
   const enZoneBancs = devices.filter(d => zoneTypeOf(d.area) === 'Zone bancs').length
+  const distinctTechniciensAssignes = new Set(devices.map(d => d.technicien).filter(Boolean)).size
 
   function toggleCheck(barcode) {
     setSelected(prev => {
@@ -234,7 +235,7 @@ export default function Planification() {
           </div>
           <div className="stat-card stat-card-compact">
             <div className="stat-label">Techniciens</div>
-            <div className="stat-value">{technicians.length}</div>
+            <div className="stat-value">{distinctTechniciensAssignes}</div>
           </div>
         </div>
 

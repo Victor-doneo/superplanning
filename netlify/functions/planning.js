@@ -3,6 +3,11 @@
 // navigateur), après avoir vérifié le jeton de session (PIN) émis par
 // login.js.
 //
+// Effet de bord : si un appareil a changé de ligne/zone depuis le dernier
+// passage, son affectation (technicien/action/commentaires/tâche) est
+// automatiquement réinitialisée — une affectation n'a plus de sens une fois
+// l'appareil déplacé ailleurs.
+//
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
 
@@ -131,14 +136,58 @@ export async function handler(event) {
       }
     }
 
+    // --- Si un appareil a changé de ligne/zone depuis le dernier passage,
+    // son affectation n'a plus de sens à cet endroit : on la réinitialise
+    // (technicien, action, commentaires, tâche, brouillon) et on retient sa
+    // nouvelle zone pour la prochaine comparaison.
+    const now = new Date().toISOString()
+    const resetByBarcode = new Map() // normalized barcode -> true si reset appliqué
+    const trackingUpdates = []
+
+    for (const d of repairRows) {
+      const key = normalizeBarcode(d.barcode)
+      const a = assignmentsByBarcode.get(key)
+      const areaChanged = !!(a && a.tracked_area && a.tracked_area !== d.area)
+
+      if (areaChanged) {
+        resetByBarcode.set(key, true)
+        trackingUpdates.push({
+          barcode: String(d.barcode),
+          tracked_area: d.area,
+          technicien: null,
+          action: null,
+          commentaire: null,
+          draft_technicien: null,
+          draft_action: null,
+          draft_commentaire: null,
+          tech_commentaire: null,
+          task_done: false,
+          task_done_at: null,
+          validated_at: null,
+          updated_at: now,
+        })
+      } else if (!a || a.tracked_area !== d.area) {
+        // Premier passage sur cet appareil (ou ligne pas encore mémorisée) :
+        // on note juste sa zone actuelle, sans rien réinitialiser.
+        trackingUpdates.push({ barcode: String(d.barcode), tracked_area: d.area, updated_at: now })
+      }
+    }
+
+    if (trackingUpdates.length > 0) {
+      const { error: trackErr } = await admin.from('repair_assignments').upsert(trackingUpdates, { onConflict: 'barcode' })
+      if (trackErr) console.error('Erreur suivi changement de ligne/zone :', trackErr.message)
+    }
+
     const devices = repairRows
       .map(d => {
-        const a = assignmentsByBarcode.get(normalizeBarcode(d.barcode))
+        const key = normalizeBarcode(d.barcode)
+        const wasReset = resetByBarcode.get(key)
+        const a = wasReset ? null : assignmentsByBarcode.get(key)
 
         // status_since : priorité à device_actions (dernière action à statut
         // différent) ; à défaut (aucun historique trouvé), on retombe sur le
         // suivi applicatif existant (repair_assignments.status_since).
-        const statusSince = lastDifferentStatusAt.get(normalizeBarcode(d.barcode)) || a?.status_since || null
+        const statusSince = lastDifferentStatusAt.get(key) || a?.status_since || null
 
         return {
           barcode: d.barcode,
@@ -167,7 +216,7 @@ export async function handler(event) {
           task_done_at: a?.task_done_at || null,
           status_since: statusSince,
           last_anomaly: (() => {
-            const found = lastAnomalyDateByBarcode.get(normalizeBarcode(d.barcode))
+            const found = lastAnomalyDateByBarcode.get(key)
             if (!found) return null
             // Ignorer une anomalie signalée avant la dernière validation :
             // elle concerne la tâche précédente, pas celle publiée actuellement.

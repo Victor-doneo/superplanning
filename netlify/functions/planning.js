@@ -1,6 +1,7 @@
-// Fonction serveur : lit export_devices_report, users et repair_assignments
-// avec la clé service_role (jamais exposée au navigateur), après avoir
-// vérifié le jeton de session (PIN) émis par login.js.
+// Fonction serveur : lit export_devices_report, users, devices, device_actions
+// et repair_assignments avec la clé service_role (jamais exposée au
+// navigateur), après avoir vérifié le jeton de session (PIN) émis par
+// login.js.
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -65,6 +66,56 @@ export async function handler(event) {
     if (techsRes.error) throw techsRes.error
     if (anomaliesRes.error) throw anomaliesRes.error
 
+    const repairRows = (devicesRes.data || []).filter(d => isRepairArea(d.area))
+
+    // --- status_since = date de la dernière action (device_actions) dont le
+    // statut diffère du statut actuel de l'appareil. Nécessite de relier
+    // barcode -> devices.id -> device_actions.device_id.
+    const barcodes = repairRows.map(d => d.barcode).filter(Boolean)
+    let lastDifferentStatusAt = new Map() // normalized barcode -> ISO date
+
+    if (barcodes.length > 0) {
+      const { data: deviceRows, error: devErr } = await admin
+        .from('devices')
+        .select('id, barcode')
+        .in('barcode', barcodes)
+      if (devErr) throw devErr
+
+      const deviceIdByBarcode = new Map()
+      for (const dv of deviceRows || []) {
+        deviceIdByBarcode.set(normalizeBarcode(dv.barcode), dv.id)
+      }
+      const idToBarcode = new Map([...deviceIdByBarcode.entries()].map(([bc, id]) => [id, bc]))
+      const deviceIds = [...idToBarcode.keys()]
+
+      if (deviceIds.length > 0) {
+        const { data: actionRows, error: actErr } = await admin
+          .from('device_actions')
+          .select('device_id, status, created_at, last_edit')
+          .in('device_id', deviceIds)
+          .order('created_at', { ascending: false })
+        if (actErr) throw actErr
+
+        // Regrouper les actions par device_id (déjà triées du plus récent au plus ancien)
+        const actionsByDeviceId = new Map()
+        for (const act of actionRows || []) {
+          if (!actionsByDeviceId.has(act.device_id)) actionsByDeviceId.set(act.device_id, [])
+          actionsByDeviceId.get(act.device_id).push(act)
+        }
+
+        const currentStatusByBarcode = new Map(repairRows.map(d => [normalizeBarcode(d.barcode), d.status]))
+
+        for (const [deviceId, actions] of actionsByDeviceId) {
+          const bc = idToBarcode.get(deviceId)
+          const currentStatus = currentStatusByBarcode.get(bc)
+          const differing = actions.find(a => a.status !== currentStatus)
+          if (differing) {
+            lastDifferentStatusAt.set(bc, differing.created_at || differing.last_edit || null)
+          }
+        }
+      }
+    }
+
     const assignmentsByBarcode = new Map(
       assignmentsRes.data.map(a => [normalizeBarcode(a.barcode), a])
     )
@@ -77,27 +128,14 @@ export async function handler(event) {
       if (!lastAnomalyByBarcode.has(key)) lastAnomalyByBarcode.set(key, an.anomaly_type)
     }
 
-    const now = new Date().toISOString()
-    const trackingUpdates = []
-
-    const devices = (devicesRes.data || [])
-      .filter(d => isRepairArea(d.area))
+    const devices = repairRows
       .map(d => {
         const a = assignmentsByBarcode.get(normalizeBarcode(d.barcode))
 
-        // Détection d'un changement de zone/statut depuis le dernier passage :
-        // si différent (ou jamais vu), on redémarre le chrono "depuis".
-        let statusSince = a?.status_since || null
-        const changed = !a || a.tracked_area !== d.area || a.tracked_status !== d.status
-        if (changed) {
-          statusSince = now
-          trackingUpdates.push({
-            barcode: String(d.barcode),
-            tracked_area: d.area,
-            tracked_status: d.status,
-            status_since: now,
-          })
-        }
+        // status_since : priorité à device_actions (dernière action à statut
+        // différent) ; à défaut (aucun historique trouvé), on retombe sur le
+        // suivi applicatif existant (repair_assignments.status_since).
+        const statusSince = lastDifferentStatusAt.get(normalizeBarcode(d.barcode)) || a?.status_since || null
 
         return {
           barcode: d.barcode,
@@ -123,14 +161,6 @@ export async function handler(event) {
         if (!technicienName) return false
         return d.technicien === technicienName
       })
-
-    // Enregistrer les changements détectés (ne touche pas technicien/action/commentaire)
-    if (trackingUpdates.length > 0) {
-      const { error: trackErr } = await admin
-        .from('repair_assignments')
-        .upsert(trackingUpdates, { onConflict: 'barcode' })
-      if (trackErr) console.error('Erreur mise à jour du suivi zone/statut :', trackErr.message)
-    }
 
     const technicians = (techsRes.data || [])
       .filter(u => !u.deleted)

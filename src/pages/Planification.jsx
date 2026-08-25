@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
+import { useColumnWidths, ResizableTh } from '../ResizableTable'
 import { RefreshCw, Search, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
@@ -22,6 +23,23 @@ function subareaDisplay(device) {
   if (device.subarea === device.area) return '—'
   return device.subarea
 }
+
+const COLUMNS = [
+  { key: 'checkbox', label: '', width: 32 },
+  { key: 'ligne', label: 'Ligne', width: 90 },
+  { key: 'banc', label: 'Banc', width: 80 },
+  { key: 'barcode', label: 'Code-barres', width: 100 },
+  { key: 'type', label: 'Type', width: 140 },
+  { key: 'marque', label: 'Marque', width: 100 },
+  { key: 'statut', label: 'Statut', width: 130 },
+  { key: 'depuis', label: 'Depuis', width: 70 },
+  { key: 'technicien', label: 'Technicien', width: 130 },
+  { key: 'action', label: 'Action', width: 130 },
+  { key: 'commentaire', label: 'Commentaire', width: 150 },
+  { key: 'tech_commentaire', label: 'Comm. technicien', width: 150 },
+  { key: 'anomalie', label: 'Anomalie / Tâche', width: 130 },
+  { key: 'saveflag', label: '', width: 24 },
+]
 
 function TacheStatusBadge({ device }) {
   if (device.task_done) {
@@ -58,11 +76,11 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
       <td className="td-checkbox">
         <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
       </td>
-      <td className="font-bold col-narrow">{device.area || '—'}</td>
-      <td className="col-narrow">{subareaDisplay(device)}</td>
-      <td>{device.barcode}</td>
-      <td>{device.service_sub_category_name || '—'}</td>
-      <td>{device.brand_name || '—'}</td>
+      <td className="font-bold td-truncate">{device.area || '—'}</td>
+      <td className="td-truncate">{subareaDisplay(device)}</td>
+      <td className="td-truncate">{device.barcode}</td>
+      <td className="td-truncate">{device.service_sub_category_name || '—'}</td>
+      <td className="td-truncate">{device.brand_name || '—'}</td>
       <td><StatusBadge statut={device.status} /></td>
       <td className={`text-sm ${sinceClass(device.status_since)}`}>{formatSince(device.status_since)}</td>
       <td>
@@ -95,7 +113,7 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
           placeholder="Commentaire…"
         />
       </td>
-      <td className="text-sm text-gray" style={{ minWidth: 140 }}>{device.tech_commentaire || '—'}</td>
+      <td className="text-sm text-gray td-truncate">{device.tech_commentaire || '—'}</td>
       <td><TacheStatusBadge device={device} /></td>
       <td style={{ width: 20 }}>
         {saving && <RefreshCw size={12} className="spin text-gray" />}
@@ -107,6 +125,7 @@ function EditableRow({ device, technicienNames, onSave, checked, onToggleCheck }
 
 export default function Planification() {
   const { devices, technicians, loading, error, reload, saveAssignment } = usePlanningData()
+  const { widths, startDrag } = useColumnWidths('doneo_planif_cols', COLUMNS)
 
   const [search, setSearch] = useState('')
   const [ligneFilter, setLigneFilter] = useState('')
@@ -284,25 +303,28 @@ export default function Planification() {
               </div>
             )}
             {!error && !loading && filtered.length > 0 && (
-              <table className="table table-compact">
+              <table className="table table-compact table-resizable">
+                <colgroup>
+                  {COLUMNS.map((c, i) => <col key={c.key} style={{ width: widths[i] }} />)}
+                </colgroup>
                 <thead>
                   <tr>
-                    <th className="td-checkbox">
+                    <ResizableTh index={0} width={widths[0]} onStartDrag={startDrag} className="td-checkbox">
                       <input type="checkbox" checked={selected.size === filtered.length} onChange={toggleAll} />
-                    </th>
-                    <th>Ligne</th>
-                    <th>Banc</th>
-                    <th>Code-barres</th>
-                    <th>Type</th>
-                    <th>Marque</th>
-                    <th>Statut</th>
-                    <th>Depuis</th>
-                    <th>Technicien</th>
-                    <th>Action</th>
-                    <th>Commentaire</th>
-                    <th>Comm. technicien</th>
-                    <th>Anomalie / Tâche</th>
-                    <th></th>
+                    </ResizableTh>
+                    <ResizableTh index={1} width={widths[1]} onStartDrag={startDrag}>Ligne</ResizableTh>
+                    <ResizableTh index={2} width={widths[2]} onStartDrag={startDrag}>Banc</ResizableTh>
+                    <ResizableTh index={3} width={widths[3]} onStartDrag={startDrag}>Code-barres</ResizableTh>
+                    <ResizableTh index={4} width={widths[4]} onStartDrag={startDrag}>Type</ResizableTh>
+                    <ResizableTh index={5} width={widths[5]} onStartDrag={startDrag}>Marque</ResizableTh>
+                    <ResizableTh index={6} width={widths[6]} onStartDrag={startDrag}>Statut</ResizableTh>
+                    <ResizableTh index={7} width={widths[7]} onStartDrag={startDrag}>Depuis</ResizableTh>
+                    <ResizableTh index={8} width={widths[8]} onStartDrag={startDrag}>Technicien</ResizableTh>
+                    <ResizableTh index={9} width={widths[9]} onStartDrag={startDrag}>Action</ResizableTh>
+                    <ResizableTh index={10} width={widths[10]} onStartDrag={startDrag}>Commentaire</ResizableTh>
+                    <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>Comm. technicien</ResizableTh>
+                    <ResizableTh index={12} width={widths[12]} onStartDrag={startDrag}>Anomalie / Tâche</ResizableTh>
+                    <th style={{ width: widths[13] }}></th>
                   </tr>
                 </thead>
                 <tbody>

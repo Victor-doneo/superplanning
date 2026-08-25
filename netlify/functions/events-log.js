@@ -1,4 +1,4 @@
-// Fonction serveur (admin uniquement) : consulte le journal repair_events
+// Fonction serveur (admin uniquement) : consulte le journal repair_app_events
 // (tâches réalisées et/ou anomalies), filtrable par type, technicien et
 // date (par défaut : aujourd'hui).
 //
@@ -34,7 +34,7 @@ export async function handler(event) {
   const todayOnly = params.all !== 'true'
 
   try {
-    let query = admin.from('repair_events').select('*').order('created_at', { ascending: false })
+    let query = admin.from('repair_app_events').select('*').order('created_at', { ascending: false })
 
     if (type) query = query.eq('event_type', type)
     if (technicien) query = query.eq('technicien', technicien)

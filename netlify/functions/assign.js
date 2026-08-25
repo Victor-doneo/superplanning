@@ -7,7 +7,7 @@
 // - technicien : uniquement tech_commentaire / task_done sur un appareil
 //   qui lui est déjà affecté (vérifié côté serveur).
 //
-// Chaque passage de task_done à true est journalisé dans repair_events
+// Chaque passage de task_done à true est journalisé dans repair_app_events
 // (historique, indépendant de repair_assignments).
 //
 // Variables d'environnement requises (Netlify) :

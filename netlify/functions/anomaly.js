@@ -1,5 +1,5 @@
 // Fonction serveur : signale une anomalie sur un appareil précis (écrit
-// dans repair_events, event_type='anomaly').
+// dans repair_app_events, event_type='anomaly').
 // - technicien : uniquement sur un appareil qui lui est affecté.
 // - admin : sur n'importe quel appareil.
 //

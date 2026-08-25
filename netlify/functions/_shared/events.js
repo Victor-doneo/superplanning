@@ -1,4 +1,4 @@
-// Écriture dans le journal unique repair_events (tâches réalisées +
+// Écriture dans le journal unique repair_app_events (tâches réalisées +
 // anomalies), utilisé par assign.js et anomaly.js.
 
 export async function fetchDeviceInfo(admin, barcode) {
@@ -13,7 +13,7 @@ export async function fetchDeviceInfo(admin, barcode) {
 export async function logTaskDone(admin, barcode, technicien, action) {
   try {
     const device = await fetchDeviceInfo(admin, barcode)
-    await admin.from('repair_events').insert({
+    await admin.from('repair_app_events').insert({
       event_type: 'task_done',
       barcode,
       technicien: technicien || null,
@@ -30,7 +30,7 @@ export async function logTaskDone(admin, barcode, technicien, action) {
 
 export async function logAnomaly(admin, { barcode, technicien, type, commentaire }) {
   const device = await fetchDeviceInfo(admin, barcode)
-  const { error } = await admin.from('repair_events').insert({
+  const { error } = await admin.from('repair_app_events').insert({
     event_type: 'anomaly',
     barcode,
     technicien: technicien || null,

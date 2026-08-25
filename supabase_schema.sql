@@ -49,7 +49,7 @@ ALTER TABLE repair_assignments ENABLE ROW LEVEL SECURITY;
 -- change ensuite de statut/technicien (ce que repair_assignments seul ne
 -- permet pas). Un seul event_type ('task_done' | 'anomaly') distingue les
 -- deux natures d'événement plutôt que deux tables quasi identiques.
-CREATE TABLE IF NOT EXISTS repair_events (
+CREATE TABLE IF NOT EXISTS repair_app_events (
     id                          SERIAL PRIMARY KEY,
     event_type                  TEXT NOT NULL,  -- 'task_done' | 'anomaly'
     barcode                     TEXT,
@@ -63,19 +63,19 @@ CREATE TABLE IF NOT EXISTS repair_events (
     service_sub_category_name   TEXT,
     created_at                  TIMESTAMPTZ DEFAULT NOW()
 );
-ALTER TABLE repair_events ENABLE ROW LEVEL SECURITY;
-CREATE INDEX IF NOT EXISTS idx_events_type ON repair_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_events_technicien ON repair_events(technicien);
-CREATE INDEX IF NOT EXISTS idx_events_created_at ON repair_events(created_at);
+ALTER TABLE repair_app_events ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_events_type ON repair_app_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_events_technicien ON repair_app_events(technicien);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON repair_app_events(created_at);
 
 -- Si vous aviez déjà déployé la version précédente (deux tables séparées),
 -- migrez les données existantes puis supprimez les anciennes tables :
 --
--- insert into repair_events (event_type, barcode, technicien, action, area, subarea, brand_name, service_sub_category_name, created_at)
+-- insert into repair_app_events (event_type, barcode, technicien, action, area, subarea, brand_name, service_sub_category_name, created_at)
 -- select 'task_done', barcode, technicien, action, area, subarea, brand_name, service_sub_category_name, created_at
 -- from repair_task_events;
 --
--- insert into repair_events (event_type, barcode, technicien, anomaly_type, commentaire, area, subarea, brand_name, service_sub_category_name, created_at)
+-- insert into repair_app_events (event_type, barcode, technicien, anomaly_type, commentaire, area, subarea, brand_name, service_sub_category_name, created_at)
 -- select 'anomaly', barcode, technicien, type, commentaire, area, subarea, brand_name, service_sub_category_name, created_at
 -- from repair_anomalies;
 --

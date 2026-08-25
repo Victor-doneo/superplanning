@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from './AuthContext'
-import { CalendarClock, Users, Menu, X, Wrench, LogOut, KeyRound, ClipboardList, UserCog } from 'lucide-react'
+import { CalendarClock, Users, Menu, X, Wrench, LogOut, KeyRound, ClipboardList, UserCog, AlertTriangle } from 'lucide-react'
 
 const navItems = [
   { to: '/planification', label: 'Planification', icon: <CalendarClock size={16} /> },
   { to: '/taches', label: 'Tâches', icon: <ClipboardList size={16} /> },
   { to: '/suivi-technicien', label: 'Suivi technicien', icon: <UserCog size={16} /> },
+  { to: '/anomalies', label: 'Anomalies', icon: <AlertTriangle size={16} /> },
   { to: '/collaborateurs', label: 'Collaborateurs', icon: <Users size={16} /> },
   { to: '/acces', label: 'Accès', icon: <KeyRound size={16} /> },
 ]

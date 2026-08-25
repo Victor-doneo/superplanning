@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
+import { authedFetch } from './auth'
 
 const STATUS_COLORS = {
   'En attente de mise en test': 'gray',
@@ -9,6 +10,15 @@ const STATUS_COLORS = {
   'Appareil à démonter': 'red',
   'Restitution partenaire': 'red',
 }
+
+export const ANOMALY_TYPES = [
+  'Pièce non reçue',
+  'Temps insuffisant',
+  'Casse de matériel',
+  'Pièce erronée ou cassée',
+  'Manque de qualification',
+  'Appareil indisponible',
+]
 
 export function StatusBadge({ statut }) {
   if (!statut) return <span className="badge badge-gray">—</span>
@@ -32,10 +42,59 @@ export function sinceClass(iso) {
   return 'since-late'
 }
 
+function AnomalyForm({ barcode, onDone }) {
+  const [type, setType] = useState('')
+  const [commentaire, setCommentaire] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function submit() {
+    if (!type) { setError('Choisissez un type d\'anomalie.'); return }
+    setSending(true)
+    setError(null)
+    try {
+      await authedFetch('/.netlify/functions/anomaly', {
+        method: 'POST',
+        body: JSON.stringify({ barcode, type, commentaire }),
+      })
+      onDone()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="anomaly-form">
+      <select className="form-input w-full" value={type} onChange={e => setType(e.target.value)}>
+        <option value="">— Type d'anomalie —</option>
+        {ANOMALY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <textarea
+        className="form-input w-full"
+        rows={2}
+        placeholder="Détail (optionnel)..."
+        value={commentaire}
+        onChange={e => setCommentaire(e.target.value)}
+      />
+      {error && <div className="login-error">{error}</div>}
+      <div className="flex gap-2">
+        <button className="btn btn-primary" onClick={submit} disabled={sending}>
+          {sending ? 'Envoi…' : 'Signaler'}
+        </button>
+        <button className="btn" onClick={() => onDone(true)}>Annuler</button>
+      </div>
+    </div>
+  )
+}
+
 export default function TaskCard({ device, onSave, readOnly = false }) {
   const [comment, setComment] = useState(device.tech_commentaire || '')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(!!device.task_done)
+  const [showAnomaly, setShowAnomaly] = useState(false)
+  const [anomalySent, setAnomalySent] = useState(false)
 
   async function saveComment() {
     if (readOnly) return
@@ -105,6 +164,22 @@ export default function TaskCard({ device, onSave, readOnly = false }) {
             {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
             {done ? 'Tâche réalisée' : 'Marquer comme réalisée'}
           </button>
+
+          {!showAnomaly && !anomalySent && (
+            <button className="btn anomaly-btn" onClick={() => setShowAnomaly(true)}>
+              <AlertTriangle size={14} />
+              Signaler une anomalie
+            </button>
+          )}
+          {anomalySent && (
+            <div className="anomaly-sent"><AlertTriangle size={13} /> Anomalie signalée</div>
+          )}
+          {showAnomaly && (
+            <AnomalyForm
+              barcode={device.barcode}
+              onDone={(cancelled) => { setShowAnomaly(false); if (!cancelled) setAnomalySent(true) }}
+            />
+          )}
         </>
       )}
       {readOnly && (

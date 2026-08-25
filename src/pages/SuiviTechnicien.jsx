@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
 import { authedFetch } from '../auth'
 import TaskCard from '../TaskCard'
-import { RefreshCw, CheckCircle2 } from 'lucide-react'
+import { RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export default function SuiviTechnicien() {
   const { devices, technicians, loading, error, reload } = usePlanningData()
@@ -24,14 +24,25 @@ export default function SuiviTechnicien() {
   const [eventsLoading, setEventsLoading] = useState(false)
   const [eventsError, setEventsError] = useState(null)
 
+  const [anomalies, setAnomalies] = useState([])
+  const [anomaliesLoading, setAnomaliesLoading] = useState(false)
+  const [anomaliesError, setAnomaliesError] = useState(null)
+
   useEffect(() => {
-    if (!selected) { setEvents([]); return }
+    if (!selected) { setEvents([]); setAnomalies([]); return }
     setEventsLoading(true)
     setEventsError(null)
     authedFetch(`/.netlify/functions/task-log?technicien=${encodeURIComponent(selected)}`)
       .then(body => setEvents(body.events || []))
       .catch(e => setEventsError(e.message))
       .finally(() => setEventsLoading(false))
+
+    setAnomaliesLoading(true)
+    setAnomaliesError(null)
+    authedFetch(`/.netlify/functions/anomalies-log?technicien=${encodeURIComponent(selected)}`)
+      .then(body => setAnomalies(body.anomalies || []))
+      .catch(e => setAnomaliesError(e.message))
+      .finally(() => setAnomaliesLoading(false))
   }, [selected])
 
   return (
@@ -107,6 +118,45 @@ export default function SuiviTechnicien() {
                           <td>{ev.barcode}</td>
                           <td>{ev.brand_name} {ev.service_sub_category_name}</td>
                           <td>{ev.action || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 20 }}>
+              <div className="card-header">
+                <span className="card-title">Anomalies signalées aujourd'hui ({anomalies.length})</span>
+              </div>
+              <div className="table-wrapper">
+                {anomaliesError && <div className="empty-state"><div className="empty-state-sub">{anomaliesError}</div></div>}
+                {!anomaliesError && anomaliesLoading && <div className="loading-state">Chargement…</div>}
+                {!anomaliesError && !anomaliesLoading && anomalies.length === 0 && (
+                  <div className="empty-state"><div className="empty-state-sub">Aucune anomalie signalée aujourd'hui pour {selected}.</div></div>
+                )}
+                {!anomaliesError && !anomaliesLoading && anomalies.length > 0 && (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Heure</th>
+                        <th>Ligne</th>
+                        <th>Banc</th>
+                        <th>Code-barres</th>
+                        <th>Type</th>
+                        <th>Détail</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {anomalies.map(an => (
+                        <tr key={an.id}>
+                          <td><AlertTriangle size={14} color="var(--orange)" style={{ verticalAlign: 'middle', marginRight: 6 }} />{new Date(an.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td>{an.area || '—'}</td>
+                          <td>{an.subarea || '—'}</td>
+                          <td>{an.barcode}</td>
+                          <td><span className="badge badge-orange">{an.type}</span></td>
+                          <td className="text-sm text-gray">{an.commentaire || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

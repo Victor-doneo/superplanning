@@ -8,6 +8,7 @@ import Collaborateurs from './pages/Collaborateurs.jsx'
 import MesTaches from './pages/MesTaches.jsx'
 import Taches from './pages/Taches.jsx'
 import SuiviTechnicien from './pages/SuiviTechnicien.jsx'
+import Anomalies from './pages/Anomalies.jsx'
 import Pins from './pages/Pins.jsx'
 
 function RoleHome() {
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/collaborateurs" element={<Collaborateurs />} />
             <Route path="/taches" element={<Taches />} />
             <Route path="/suivi-technicien" element={<SuiviTechnicien />} />
+            <Route path="/anomalies" element={<Anomalies />} />
             <Route path="/acces" element={<Pins />} />
           </Route>
         </Route>

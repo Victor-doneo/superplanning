@@ -201,6 +201,11 @@ body {
 .task-done-btn { justify-content: center; padding: 10px; font-weight: 500; }
 .task-done-btn-active { background: var(--green-light); border-color: var(--green); color: #065f46; }
 
+.anomaly-btn { justify-content: center; padding: 8px; font-size: 13px; color: #92400e; background: var(--orange-light); border-color: var(--orange); }
+.anomaly-btn:hover { background: #fde9c4; }
+.anomaly-sent { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #92400e; }
+.anomaly-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--gray-50); border-radius: var(--radius-sm); border: 1px solid var(--gray-200); }
+
 /* ---- Planification : densité + sélection multiple ---- */
 .stats-grid-compact { gap: 10px; margin-bottom: 16px; }
 .stat-card-compact { padding: 12px 16px; }

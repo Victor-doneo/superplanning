@@ -63,6 +63,28 @@ CREATE INDEX IF NOT EXISTS idx_task_events_technicien ON repair_task_events(tech
 CREATE INDEX IF NOT EXISTS idx_task_events_created_at ON repair_task_events(created_at);
 
 -- ============================================================
+-- Anomalies remontées par les techniciens
+-- ============================================================
+-- Signalées depuis une tâche/appareil précis. Journal append-only, comme
+-- repair_task_events, pour garder l'historique même si l'appareil est
+-- ensuite réaffecté ou change de statut.
+CREATE TABLE IF NOT EXISTS repair_anomalies (
+    id                          SERIAL PRIMARY KEY,
+    barcode                     TEXT,
+    technicien                  TEXT,
+    type                        TEXT NOT NULL, -- une des 6 catégories fixes (voir front)
+    commentaire                 TEXT,
+    area                        TEXT,
+    subarea                     TEXT,
+    brand_name                  TEXT,
+    service_sub_category_name   TEXT,
+    created_at                  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE repair_anomalies ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_anomalies_technicien ON repair_anomalies(technicien);
+CREATE INDEX IF NOT EXISTS idx_anomalies_created_at ON repair_anomalies(created_at);
+
+-- ============================================================
 -- Codes PIN de connexion
 -- ============================================================
 -- Les PIN sont gérés dans un AUTRE projet Supabase, table

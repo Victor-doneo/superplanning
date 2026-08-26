@@ -274,6 +274,14 @@ body {
 .btn-priority:hover { color: #f59e0b; }
 .btn-priority-active { color: #f59e0b; }
 
+.priority-panel {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #fffbeb; border: 1px solid #f59e0b; color: #92400e;
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px;
+  white-space: nowrap;
+}
+.priority-panel-compact { font-size: 10.5px; padding: 2px 7px; gap: 3px; }
+
 .bulk-toolbar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 10px 22px; background: #eef2ff; border-bottom: 1px solid var(--gray-200);

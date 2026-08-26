@@ -26,6 +26,15 @@ export function StatusBadge({ statut }) {
   return <span className={`badge badge-${color}`}>{statut}</span>
 }
 
+export function PriorityPanel({ compact = false }) {
+  return (
+    <span className={`priority-panel${compact ? ' priority-panel-compact' : ''}`}>
+      <AlertTriangle size={compact ? 11 : 13} />
+      Prioritaire
+    </span>
+  )
+}
+
 export function formatSince(iso) {
   if (!iso) return '—'
   const diffMs = Date.now() - new Date(iso).getTime()

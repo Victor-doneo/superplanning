@@ -16,8 +16,14 @@ export default function Taches() {
     () => devices
       .filter(d => d.technicien === name)
       .filter(d => showDone || !d.task_done)
+      .filter(d => !d.last_anomaly)
       .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')),
     [devices, name, showDone]
+  )
+
+  const pendingAnomalyCount = useMemo(
+    () => devices.filter(d => d.technicien === name && d.last_anomaly).length,
+    [devices, name]
   )
 
   const [events, setEvents] = useState([])
@@ -54,6 +60,11 @@ export default function Taches() {
             <RefreshCw size={15} className={loading ? 'spin' : ''} />
           </button>
         </div>
+        {pendingAnomalyCount > 0 && (
+          <div className="anomaly-pending-note" style={{ marginBottom: 16 }}>
+            {pendingAnomalyCount} tâche{pendingAnomalyCount > 1 ? 's' : ''} masquée{pendingAnomalyCount > 1 ? 's' : ''} en attente de traitement de l'anomalie signalée
+          </div>
+        )}
 
         {error && <div className="empty-state"><div className="empty-state-title">Erreur</div><div className="empty-state-sub">{error}</div></div>}
         {!error && loading && <div className="loading-state">Chargement…</div>}

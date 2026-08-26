@@ -51,9 +51,6 @@ export async function handler(event) {
   const admin = createClient(supabaseUrl, serviceKey)
 
   try {
-    const startOfDay = new Date()
-    startOfDay.setUTCHours(0, 0, 0, 0)
-
     const [devicesRes, assignmentsRes, techsRes, anomaliesRes] = await Promise.all([
       admin.from('export_devices_report').select('*'),
       admin.from('repair_assignments').select('*'),
@@ -62,7 +59,6 @@ export async function handler(event) {
         .from('repair_app_events')
         .select('barcode, anomaly_type, created_at')
         .eq('event_type', 'anomaly')
-        .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false }),
     ])
 

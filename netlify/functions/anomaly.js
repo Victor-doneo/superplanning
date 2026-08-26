@@ -20,6 +20,7 @@ export const ANOMALY_TYPES = [
   'Pièce erronée ou cassée',
   'Manque de qualification',
   'Appareil indisponible',
+  'Diagnostic erroné',
 ]
 
 export async function handler(event) {

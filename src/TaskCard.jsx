@@ -42,9 +42,8 @@ export function sinceClass(iso) {
   return 'since-late'
 }
 
-function AnomalyForm({ barcode, onDone }) {
+function AnomalyForm({ barcode, comment, onDone }) {
   const [type, setType] = useState('')
-  const [commentaire, setCommentaire] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
 
@@ -55,7 +54,7 @@ function AnomalyForm({ barcode, onDone }) {
     try {
       await authedFetch('/.netlify/functions/anomaly', {
         method: 'POST',
-        body: JSON.stringify({ barcode, type, commentaire }),
+        body: JSON.stringify({ barcode, type, commentaire: comment }),
       })
       onDone()
     } catch (e) {
@@ -71,13 +70,6 @@ function AnomalyForm({ barcode, onDone }) {
         <option value="">— Type d'anomalie —</option>
         {ANOMALY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
       </select>
-      <textarea
-        className="form-input w-full"
-        rows={2}
-        placeholder="Détail (optionnel)..."
-        value={commentaire}
-        onChange={e => setCommentaire(e.target.value)}
-      />
       {error && <div className="login-error">{error}</div>}
       <div className="flex gap-2">
         <button className="btn btn-primary" onClick={submit} disabled={sending}>
@@ -151,14 +143,14 @@ export default function TaskCard({ device, onSave, readOnly = false }) {
         )
       ) : (
         <>
-          <label className="form-label">Votre commentaire</label>
+          <label className="form-label">Commentaire (optionnel)</label>
           <textarea
             className="form-input w-full"
             rows={2}
             value={comment}
             onChange={e => setComment(e.target.value)}
             onBlur={saveComment}
-            placeholder="Notez ce que vous avez fait, un blocage..."
+            placeholder="Ce que vous avez fait, un blocage… (utilisé aussi si vous signalez une anomalie)"
           />
           <button className={`btn task-done-btn${done ? ' task-done-btn-active' : ''}`} onClick={toggleDone} disabled={saving}>
             {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
@@ -177,6 +169,7 @@ export default function TaskCard({ device, onSave, readOnly = false }) {
           {showAnomaly && (
             <AnomalyForm
               barcode={device.barcode}
+              comment={comment}
               onDone={(cancelled) => { setShowAnomaly(false); if (!cancelled) setAnomalySent(true) }}
             />
           )}

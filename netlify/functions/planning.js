@@ -160,6 +160,8 @@ export async function handler(event) {
           draft_technicien: null,
           draft_action: null,
           draft_commentaire: null,
+          draft_priority: false,
+          priority: false,
           tech_commentaire: null,
           task_done: false,
           task_done_at: null,
@@ -202,14 +204,17 @@ export async function handler(event) {
           technicien: a?.technicien || null,
           action: a?.action || null,
           commentaire: a?.commentaire || null,
+          priority: !!a?.priority,
           // Brouillon admin (invisible du technicien tant que non validé)
           draft_technicien: a?.draft_technicien ?? a?.technicien ?? null,
           draft_action: a?.draft_action ?? a?.action ?? null,
           draft_commentaire: a?.draft_commentaire ?? a?.commentaire ?? null,
+          draft_priority: a?.draft_priority ?? a?.priority ?? false,
           pending_validation: !!(a && (
             (a.draft_technicien || null) !== (a.technicien || null) ||
             (a.draft_action || null) !== (a.action || null) ||
-            (a.draft_commentaire || null) !== (a.commentaire || null)
+            (a.draft_commentaire || null) !== (a.commentaire || null) ||
+            !!a.draft_priority !== !!a.priority
           )),
           tech_commentaire: a?.tech_commentaire || null,
           task_done: a?.task_done || false,

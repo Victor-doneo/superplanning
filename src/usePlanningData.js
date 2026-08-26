@@ -7,7 +7,8 @@ function withPendingFlag(d) {
     pending_validation:
       (d.draft_technicien || null) !== (d.technicien || null) ||
       (d.draft_action || null) !== (d.action || null) ||
-      (d.draft_commentaire || null) !== (d.commentaire || null),
+      (d.draft_commentaire || null) !== (d.commentaire || null) ||
+      !!d.draft_priority !== !!d.priority,
   }
 }
 
@@ -56,6 +57,7 @@ export function usePlanningData() {
         technicien: d.draft_technicien,
         action: d.draft_action,
         commentaire: d.draft_commentaire,
+        priority: !!d.draft_priority,
         tech_commentaire: actionOrCommentChanged ? null : d.tech_commentaire,
         task_done: actionOrCommentChanged ? false : d.task_done,
         task_done_at: actionOrCommentChanged ? null : d.task_done_at,

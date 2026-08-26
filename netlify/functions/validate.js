@@ -1,11 +1,17 @@
 // Fonction serveur (admin uniquement) : "Valider les tâches" — publie le
-// brouillon (draft_technicien/draft_action/draft_commentaire) vers les
-// valeurs réellement visibles par le technicien (technicien/action/commentaire).
+// brouillon (draft_technicien/draft_action/draft_commentaire/draft_priority)
+// vers les valeurs réellement visibles par le technicien.
 //
 // Le commentaire technicien (tech_commentaire) ET le statut "tâche
 // réalisée" (task_done) sont remis à zéro SI ET SEULEMENT SI l'action ou le
 // commentaire admin change par rapport à la dernière version publiée
-// (sinon on les laisse tels quels).
+// (sinon on les conserve tels quels).
+//
+// Chaque ligne de la mise à jour groupée porte EXPLICITEMENT tous les
+// champs concernés (même valeur inchangée répétée), plutôt que d'omettre
+// certaines clés selon les lignes — un upsert groupé avec des ensembles de
+// colonnes hétérogènes entre les lignes peut se comporter de façon
+// imprévisible.
 //
 // Variables d'environnement requises (Netlify) :
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
@@ -44,7 +50,7 @@ export async function handler(event) {
   try {
     const { data: rows, error: fetchErr } = await admin
       .from('repair_assignments')
-      .select('barcode, technicien, action, commentaire, draft_technicien, draft_action, draft_commentaire')
+      .select('barcode, technicien, action, commentaire, draft_technicien, draft_action, draft_commentaire, draft_priority, tech_commentaire, task_done, task_done_at')
       .in('barcode', barcodes)
     if (fetchErr) throw fetchErr
 
@@ -59,24 +65,25 @@ export async function handler(event) {
       const newAction = row.draft_action ?? null
       const newCommentaire = row.draft_commentaire ?? null
       const newTechnicien = row.draft_technicien ?? null
+      const newPriority = !!row.draft_priority
 
       const actionOrCommentChanged =
         (row.action || null) !== newAction || (row.commentaire || null) !== newCommentaire
 
-      const update = {
+      // Toutes les lignes de la mise à jour groupée portent EXACTEMENT les
+      // mêmes colonnes, valeur inchangée répétée si besoin.
+      updates.push({
         barcode: bc,
         technicien: newTechnicien,
         action: newAction,
         commentaire: newCommentaire,
+        priority: newPriority,
         validated_at: now,
         updated_at: now,
-      }
-      if (actionOrCommentChanged) {
-        update.tech_commentaire = null
-        update.task_done = false
-        update.task_done_at = null
-      }
-      updates.push(update)
+        tech_commentaire: actionOrCommentChanged ? null : (row.tech_commentaire ?? null),
+        task_done: actionOrCommentChanged ? false : !!row.task_done,
+        task_done_at: actionOrCommentChanged ? null : (row.task_done_at ?? null),
+      })
     }
 
     if (updates.length === 0) {

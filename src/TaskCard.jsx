@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Circle, AlertTriangle, Star } from 'lucide-react'
 import { authedFetch } from './auth'
 
 const STATUS_COLORS = {
@@ -116,10 +116,13 @@ export default function TaskCard({ device, onSave, readOnly = false }) {
   }
 
   return (
-    <div className={`task-card${done ? ' task-card-done' : ''}`}>
+    <div className={`task-card${done ? ' task-card-done' : ''}${device.priority ? ' task-card-priority' : ''}`}>
       <div className="task-card-top">
         <div>
-          <div className="task-card-title">{device.area} · {device.subarea}</div>
+          <div className="task-card-title">
+            {device.priority && <Star size={14} fill="#f59e0b" color="#f59e0b" style={{ verticalAlign: -2, marginRight: 4 }} />}
+            {device.area} · {device.subarea}
+          </div>
           <div className="task-card-sub">{device.brand_name} — {device.service_sub_category_name}</div>
         </div>
         <StatusBadge statut={device.status} />

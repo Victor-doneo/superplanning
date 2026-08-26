@@ -13,7 +13,7 @@ export default function MesTaches() {
     () => devices
       .filter(d => d.technicien === name)
       .filter(d => showDone || !d.task_done)
-      .sort((a, b) => (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')),
+      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')),
     [devices, name, showDone]
   )
 

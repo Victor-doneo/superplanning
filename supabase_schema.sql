@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS repair_assignments (
     draft_technicien TEXT,
     draft_action     TEXT,
     draft_commentaire TEXT,
+    draft_priority   BOOLEAN DEFAULT FALSE, -- tâche prioritaire (brouillon, avant validation)
+    priority         BOOLEAN DEFAULT FALSE, -- valeur publiée, détermine l'ordre dans "Tâches"
     validated_at     TIMESTAMPTZ,
     -- Suivi "depuis combien de temps sur cette zone avec ce statut" : l'app
     -- met à jour ces 3 colonnes elle-même dès qu'elle détecte un changement
@@ -45,6 +47,8 @@ ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_technicien TEXT;
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_action TEXT;
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_commentaire TEXT;
 ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS validated_at TIMESTAMPTZ;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS draft_priority BOOLEAN DEFAULT FALSE;
+ALTER TABLE repair_assignments ADD COLUMN IF NOT EXISTS priority BOOLEAN DEFAULT FALSE;
 
 -- Si vous aviez déjà des affectations publiées avant l'introduction du
 -- brouillon, on les recopie une seule fois comme point de départ du

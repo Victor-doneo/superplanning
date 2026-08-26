@@ -52,11 +52,12 @@ export async function handler(event) {
 
   try {
     if (role === 'admin') {
-      const { draft_technicien, draft_action, draft_commentaire, tech_commentaire, task_done } = payload
+      const { draft_technicien, draft_action, draft_commentaire, draft_priority, tech_commentaire, task_done } = payload
       const update = { barcode: bc, updated_at: new Date().toISOString() }
       if (draft_technicien !== undefined) update.draft_technicien = draft_technicien || null
       if (draft_action !== undefined) update.draft_action = draft_action || null
       if (draft_commentaire !== undefined) update.draft_commentaire = draft_commentaire || null
+      if (draft_priority !== undefined) update.draft_priority = !!draft_priority
       if (tech_commentaire !== undefined) update.tech_commentaire = tech_commentaire || null
       if (task_done !== undefined) {
         update.task_done = !!task_done

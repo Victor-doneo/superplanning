@@ -3,7 +3,7 @@ import { usePlanningData } from '../usePlanningData'
 import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
 import { useColumnWidths, ResizableTh } from '../ResizableTable'
 import DeviceModal from '../DeviceModal'
-import { RefreshCw, Search, CheckCircle2, AlertTriangle, Send } from 'lucide-react'
+import { RefreshCw, Search, CheckCircle2, AlertTriangle, Send, Star } from 'lucide-react'
 
 const ZONE_TYPES = ['Zone attente validation', 'Zone qualité', 'Zone bancs', 'Autres zones']
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
@@ -27,6 +27,7 @@ function subareaDisplay(device) {
 
 const COLUMNS = [
   { key: 'checkbox', label: '', width: 32 },
+  { key: 'priority', label: '', width: 32 },
   { key: 'ligne', label: 'Ligne', width: 90 },
   { key: 'banc', label: 'Banc', width: 80 },
   { key: 'barcode', label: 'Code-barres', width: 100 },
@@ -110,6 +111,15 @@ function EditableRow({ device, technicienNames, onSave, onValidate, checked, onT
     <tr className={checked ? 'row-selected' : (device.pending_validation ? 'row-pending' : '')}>
       <td className="td-checkbox">
         <input type="checkbox" checked={checked} onChange={() => onToggleCheck(device.barcode)} />
+      </td>
+      <td className="td-checkbox">
+        <button
+          className={`btn-priority${device.draft_priority ? ' btn-priority-active' : ''}`}
+          onClick={() => persist({ draft_technicien: technicien, draft_action: action, draft_priority: !device.draft_priority })}
+          title={device.draft_priority ? 'Retirer la priorité' : 'Marquer prioritaire'}
+        >
+          <Star size={14} fill={device.draft_priority ? 'currentColor' : 'none'} />
+        </button>
       </td>
       <td className="font-bold td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.area || '—'}</td>
       <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{subareaDisplay(device)}</td>
@@ -401,42 +411,43 @@ export default function Planification() {
                     <ResizableTh index={0} width={widths[0]} onStartDrag={startDrag} className="td-checkbox">
                       <input type="checkbox" checked={selected.size === filtered.length} onChange={toggleAll} />
                     </ResizableTh>
-                    <ResizableTh index={1} width={widths[1]} onStartDrag={startDrag}>
+                    <ResizableTh index={1} width={widths[1]} onStartDrag={startDrag} className="td-checkbox" title="Priorité" />
+                    <ResizableTh index={2} width={widths[2]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('ligne')}>Ligne<SortIndicator active={sortConfig.key === 'ligne'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={2} width={widths[2]} onStartDrag={startDrag}>
+                    <ResizableTh index={3} width={widths[3]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('banc')}>Banc<SortIndicator active={sortConfig.key === 'banc'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={3} width={widths[3]} onStartDrag={startDrag}>
+                    <ResizableTh index={4} width={widths[4]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('barcode')}>Code-barres<SortIndicator active={sortConfig.key === 'barcode'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={4} width={widths[4]} onStartDrag={startDrag}>
+                    <ResizableTh index={5} width={widths[5]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('type')}>Type<SortIndicator active={sortConfig.key === 'type'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={5} width={widths[5]} onStartDrag={startDrag}>
+                    <ResizableTh index={6} width={widths[6]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('marque')}>Marque<SortIndicator active={sortConfig.key === 'marque'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={6} width={widths[6]} onStartDrag={startDrag}>
+                    <ResizableTh index={7} width={widths[7]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('statut')}>Statut<SortIndicator active={sortConfig.key === 'statut'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={7} width={widths[7]} onStartDrag={startDrag}>
+                    <ResizableTh index={8} width={widths[8]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('depuis')}>Depuis<SortIndicator active={sortConfig.key === 'depuis'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={8} width={widths[8]} onStartDrag={startDrag}>
+                    <ResizableTh index={9} width={widths[9]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('technicien')}>Technicien<SortIndicator active={sortConfig.key === 'technicien'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={9} width={widths[9]} onStartDrag={startDrag}>
+                    <ResizableTh index={10} width={widths[10]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('action')}>Action<SortIndicator active={sortConfig.key === 'action'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={10} width={widths[10]} onStartDrag={startDrag}>
+                    <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('commentaire')}>Commentaire<SortIndicator active={sortConfig.key === 'commentaire'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={11} width={widths[11]} onStartDrag={startDrag}>
+                    <ResizableTh index={12} width={widths[12]} onStartDrag={startDrag}>
                       <span className="th-sort-label" onClick={() => handleSort('tech_commentaire')}>Comm. technicien<SortIndicator active={sortConfig.key === 'tech_commentaire'} dir={sortConfig.dir} /></span>
                     </ResizableTh>
-                    <ResizableTh index={12} width={widths[12]} onStartDrag={startDrag}>Anomalie / Tâche</ResizableTh>
-                    <th style={{ width: widths[13] }}></th>
+                    <ResizableTh index={13} width={widths[13]} onStartDrag={startDrag}>Anomalie / Tâche</ResizableTh>
                     <th style={{ width: widths[14] }}></th>
+                    <th style={{ width: widths[15] }}></th>
                   </tr>
                 </thead>
                 <tbody>

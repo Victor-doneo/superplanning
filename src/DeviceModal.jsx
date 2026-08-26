@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { authedFetch } from './auth'
 import { StatusBadge, formatSince, sinceClass } from './TaskCard'
-import { X, CheckCircle2, AlertTriangle, Send, RefreshCw } from 'lucide-react'
+import { X, CheckCircle2, AlertTriangle, Send, RefreshCw, Star } from 'lucide-react'
 
 const ACTIONS = ['Pré-diagnostic', 'Diagnostic', 'Réparation', 'Contrôle qualité', 'Validation']
 
@@ -69,6 +69,13 @@ export default function DeviceModal({ device, technicienNames, onClose, onSave, 
             <StatusBadge statut={device.status} />
             <span className={`text-sm ${sinceClass(device.status_since)}`}>Depuis {formatSince(device.status_since)}</span>
             {device.pending_validation && <span className="badge badge-orange">En attente de validation</span>}
+            <button
+              className={`btn-priority${device.draft_priority ? ' btn-priority-active' : ''}`}
+              onClick={() => persist({ draft_technicien: technicien, draft_action: action, draft_commentaire: commentaire, draft_priority: !device.draft_priority })}
+              title={device.draft_priority ? 'Retirer la priorité' : 'Marquer prioritaire'}
+            >
+              <Star size={16} fill={device.draft_priority ? 'currentColor' : 'none'} />
+            </button>
           </div>
 
           <div className="modal-section">

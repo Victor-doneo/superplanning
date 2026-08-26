@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { usePlanningData } from '../usePlanningData'
-import { StatusBadge, formatSince, sinceClass, PriorityPanel } from '../TaskCard'
+import { StatusBadge, formatSince, sinceClass } from '../TaskCard'
 import { useColumnWidths, ResizableTh } from '../ResizableTable'
 import DeviceModal from '../DeviceModal'
 import { RefreshCw, Search, CheckCircle2, AlertTriangle, Send, Star } from 'lucide-react'
@@ -122,7 +122,8 @@ function EditableRow({ device, technicienNames, onSave, onValidate, checked, onT
         </button>
       </td>
       <td className="font-bold td-truncate clickable-row" onClick={() => onOpenSummary(device)}>
-        {device.draft_priority && <PriorityPanel compact />} {device.area || '—'}
+        {device.draft_priority && <AlertTriangle size={12} color="#f59e0b" style={{ verticalAlign: -2, marginRight: 3, flexShrink: 0 }} title="Prioritaire" />}
+        {device.area || '—'}
       </td>
       <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{subareaDisplay(device)}</td>
       <td className="td-truncate clickable-row" onClick={() => onOpenSummary(device)}>{device.barcode}</td>

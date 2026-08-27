@@ -237,11 +237,14 @@ export default function Planification() {
         if (typeof va === 'number' && typeof vb === 'number') {
           cmp = va - vb
         } else {
-          cmp = String(va).localeCompare(String(vb), 'fr')
+          // { numeric: true } : tri naturel, "Banc 2" avant "Banc 10" au
+          // lieu de l'ordre alphabétique pur (qui mettrait "10" avant "2").
+          cmp = String(va).localeCompare(String(vb), 'fr', { numeric: true })
         }
         // Tri secondaire stable par Ligne puis Banc, pour un ordre prévisible
         if (cmp === 0 && sortConfig.key !== 'ligne') {
-          cmp = (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')
+          cmp = (a.area || '').localeCompare(b.area || '', 'fr', { numeric: true })
+            || (a.subarea || '').localeCompare(b.subarea || '', 'fr', { numeric: true })
         }
         return sortConfig.dir === 'asc' ? cmp : -cmp
       })

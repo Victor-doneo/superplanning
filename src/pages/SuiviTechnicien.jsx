@@ -18,7 +18,7 @@ export default function SuiviTechnicien() {
   const tasks = useMemo(
     () => devices
       .filter(d => d.technicien === selected)
-      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')),
+      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr', { numeric: true }) || (a.subarea || '').localeCompare(b.subarea || '', 'fr', { numeric: true })),
     [devices, selected]
   )
 

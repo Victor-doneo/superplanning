@@ -17,7 +17,7 @@ export default function Taches() {
       .filter(d => d.technicien === name)
       .filter(d => showDone || !d.task_done)
       .filter(d => !d.last_anomaly)
-      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr') || (a.subarea || '').localeCompare(b.subarea || '', 'fr')),
+      .sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0) || (a.area || '').localeCompare(b.area || '', 'fr', { numeric: true }) || (a.subarea || '').localeCompare(b.subarea || '', 'fr', { numeric: true })),
     [devices, name, showDone]
   )
 

@@ -241,8 +241,10 @@ export default function Planification() {
           // lieu de l'ordre alphabétique pur (qui mettrait "10" avant "2").
           cmp = String(va).localeCompare(String(vb), 'fr', { numeric: true })
         }
-        // Tri secondaire stable par Ligne puis Banc, pour un ordre prévisible
-        if (cmp === 0 && sortConfig.key !== 'ligne') {
+        // Tri secondaire stable par Ligne puis Banc, pour que les bancs
+        // restent dans l'ordre à l'intérieur de chaque ligne (utile même —
+        // surtout — quand on trie déjà par Ligne).
+        if (cmp === 0) {
           cmp = (a.area || '').localeCompare(b.area || '', 'fr', { numeric: true })
             || (a.subarea || '').localeCompare(b.subarea || '', 'fr', { numeric: true })
         }
